@@ -6,11 +6,10 @@ import {
   type Scene,
 } from "@babylonjs/core";
 import type { Vec3Data } from "../../shared/types";
-import { CollisionLayers } from "../core/CollisionLayers";
 import { damp, shortestAngle, yawFromDirection } from "../core/mathUtils";
-import type { CapsuleShapeConfig, MovementConfig } from "./PlayerConfig";
+import type { CapsuleShapeConfig, MovementConfig } from "./CharacterConfig";
 
-/** O que a lógica (input hoje, máquina de estados depois) pede ao corpo neste quadro. */
+/** O que a lógica (máquina de estados do jogador ou IA) pede ao corpo neste quadro. */
 export interface MoveIntent {
   /** Direção no mundo, no plano XZ, com comprimento 0..1 (analógico). */
   directionX: number;
@@ -19,6 +18,15 @@ export interface MoveIntent {
   maxSpeed: number;
   /** Para onde virar o corpo; null = virar para a direção do movimento. */
   faceYaw: number | null;
+  /**
+   * Velocidade horizontal imposta, sem aceleração (avanço de golpe, esquiva, knockback).
+   * null = movimento normal a partir de direction/maxSpeed.
+   */
+  forcedVelocity: { x: number; z: number } | null;
+}
+
+export function createMoveIntent(): MoveIntent {
+  return { directionX: 0, directionZ: 0, maxSpeed: 0, faceYaw: null, forcedVelocity: null };
 }
 
 const DOWN = new Vector3(0, -1, 0);
@@ -30,12 +38,12 @@ const MIN_TURN_INPUT = 0.1;
 const CONTACT_TOLERANCE = 0.02;
 
 /**
- * Corpo físico do jogador sobre o PhysicsCharacterController do Havok:
+ * Corpo físico de um personagem sobre o PhysicsCharacterController do Havok:
  * aceleração/desaceleração, gravidade, pulo (com coyote time e buffer) e rotação.
- * Não lê input: recebe um MoveIntent. Assim a máquina de estados do combate
- * (Tarefa 3) e a IA poderão comandar o mesmo motor.
+ * Não lê input: recebe um MoveIntent. Jogador (máquina de estados) e inimigos (IA)
+ * usam o mesmo motor.
  */
-export class PlayerMotor {
+export class CharacterMotor {
   private readonly controller: PhysicsCharacterController;
   /** Distância do centro da cápsula até os pés visuais (meia altura + folga de contato). */
   private readonly footOffset: number;
@@ -60,6 +68,8 @@ export class PlayerMotor {
     feetPosition: Vec3Data,
     shape: CapsuleShapeConfig,
     private readonly config: MovementConfig,
+    /** Camada de colisão (CollisionLayers): permite filtrar consultas por tipo de personagem. */
+    collisionLayer: number,
   ) {
     this.gravityVec = new Vector3(0, -config.gravity, 0);
     this.controller = new PhysicsCharacterController(
@@ -74,8 +84,8 @@ export class PlayerMotor {
     this.controller.maxStepHeight = shape.maxStepHeight;
     this.controller.maxSlopeCosine = Math.cos((shape.maxSlopeDegrees * Math.PI) / 180);
     this.controller.maxCharacterSpeedForSolver = Math.max(config.runSpeed, config.maxFallSpeed) + 5;
-    // Filtro: a câmera e outras consultas podem ignorar o jogador.
-    this.controller.shape.filterMembershipMask = CollisionLayers.PLAYER;
+    // Filtro: a câmera e outras consultas podem ignorar personagens.
+    this.controller.shape.filterMembershipMask = collisionLayer;
   }
 
   get grounded(): boolean {
@@ -86,7 +96,8 @@ export class PlayerMotor {
     return this._facingYaw;
   }
 
-  set facingYaw(yaw: number) {
+  /** Vira o corpo imediatamente (ex.: início de golpe mirando o alvo). */
+  snapFacing(yaw: number): void {
     this._facingYaw = yaw;
   }
 
@@ -149,6 +160,11 @@ export class PlayerMotor {
   }
 
   private updateHorizontal(dt: number, intent: MoveIntent): void {
+    if (intent.forcedVelocity) {
+      this.velX = intent.forcedVelocity.x;
+      this.velZ = intent.forcedVelocity.z;
+      return;
+    }
     const cfg = this.config;
     const targetX = intent.directionX * intent.maxSpeed;
     const targetZ = intent.directionZ * intent.maxSpeed;

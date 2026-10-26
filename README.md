@@ -25,9 +25,18 @@ Escolha o episódio pela URL: `http://localhost:5173/?ep=s00e00` (padrão: `s00e
 | Espaço                | Pular                                          |
 | Mouse                 | Girar a câmera                                 |
 | Roda do mouse         | Aproximar/afastar a câmera                     |
-| F9                    | Abrir/fechar o Inspector (só em `npm run dev`) |
+| Botão esquerdo        | Soco (clique de novo no tempo certo: combo de 3) |
+| F                     | Chute (mais lento, mais dano, empurra)         |
+| C                     | Esquiva (breve invulnerabilidade, gasta stamina) |
+| Q / botão do meio     | Travar/destravar a mira no inimigo à frente    |
 
-Os controles de combate chegam nas próximas tarefas.
+Atalhos de desenvolvimento (só em `npm run dev`):
+
+| Tecla | Efeito                                 |
+| ----- | -------------------------------------- |
+| F7    | Mostrar/ocultar hitboxes dos golpes    |
+| F8    | Simular um golpe no jogador            |
+| F9    | Abrir/fechar o Inspector do Babylon    |
 
 ## Estrutura de pastas
 
@@ -70,7 +79,8 @@ Mais detalhes de arquitetura em [CLAUDE.md](CLAUDE.md).
    Cada obstáculo é `box` (com `size`) ou `cylinder` (com `diameter` e `height`).
    `position` é o **centro** do objeto, `mass > 0` o torna dinâmico, e cores são `"#rrggbb"`.
 4. Crie o `encounters.json` com a lista `enemies` (`id`, `type`, `position` dos pés,
-   `stats: { health, damage, speed }`).
+   `stats: { health, damage, speed }`). Tipos disponíveis: `vandalo`
+   (definidos em `src/engine/enemies/EnemyConfig.ts`).
 5. Registre o episódio em `public/episodes/catalog.json`:
    `{ "id": "s01e02", "folder": "s01e02-nome-curto" }`.
 6. Abra `?ep=s01e02`. Erros de validação aparecem no console e na tela, com o caminho exato

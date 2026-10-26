@@ -1,5 +1,5 @@
 /** Ações de botão do jogo. Novas ações (ataque, esquiva...) entram aqui. */
-export type ButtonAction = "jump" | "run";
+export type ButtonAction = "jump" | "run" | "attack" | "kick" | "dodge" | "lockOn";
 
 /**
  * O que todas as fontes de input produzem a cada quadro, já em unidades do jogo.

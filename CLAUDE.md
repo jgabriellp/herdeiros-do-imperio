@@ -38,17 +38,24 @@ construtor genérico a partir do `level.json`; não existe "gerador do sandbox".
 ```
 src/main.ts              lançador local (papel da plataforma futura): ?ep= → catálogo → GameConfig → startGame
 src/engine/startGame.ts  ponto de entrada único do motor
-src/engine/core/         Game (ciclo de vida), GameEvents, GameLoop (fases input→update→late),
+src/engine/core/         Game (carregamento e ciclo de vida), GameplaySystems (monta e liga os
+                         sistemas de jogo), GameEvents, GameLoop (fases input→update→late),
                          CanvasHost, Physics, CollisionLayers, DisposeStack, GameError,
-                         DevInspector (F9), mathUtils
+                         DevInspector (F9), DevHotkeys (F7/F8), mathUtils
 src/engine/core/input/   InputManager, InputSource (interface), KeyboardMouseSource, InputBindings
 src/engine/episodes/     EpisodeLoader (único que busca arquivos de episódio) + validadores
 src/engine/world/        montagem de fase: ProceduralLevelBuilder, SkyDome, LevelLighting, DebugMarkers
 src/engine/save/         SaveManager, LocalSaveProvider, migrateSave, defaultSave
-src/engine/player/       Player (montagem), PlayerMotor (física), PlayerController (input→intenção),
-                         PlayerVisual (interface) + CapsuleVisual, ThirdPersonCamera, configs
-src/engine/ui/           MessageOverlay, ControlsHint (DOM); HUD (Babylon GUI) virá na Tarefa 5
-src/engine/{combat,enemies,vfx}/  vazias até as Tarefas 3–5
+src/engine/character/    CharacterMotor (física de personagem: jogador E inimigos), CharacterConfig
+src/engine/player/       Player (montagem + alvo de combate), PlayerController (orquestra o quadro),
+                         PlayerStateMachine + states/ (Idle, Move, Run, Jump, Attack, HitStun, Dodge),
+                         PlayerStats, PlayerVisual (interface) + CapsuleVisual, ThirdPersonCamera, configs
+src/engine/combat/       CombatConfig (TODOS os números do combate), CombatTypes (CombatTarget, HitInfo),
+                         Hitbox, DamageSystem, TargetLock, HitboxDebugView
+src/engine/enemies/      Enemy (passivo por ora), EnemyVisual, EnemyFactory, EnemyManager, EnemyConfig (tipos)
+src/engine/ui/           MessageOverlay, ControlsHint, DevStatsPanel (DOM), TargetMarker (3D);
+                         HUD (Babylon GUI) virá na Tarefa 5
+src/engine/vfx/          vazia até a Tarefa 5
 src/shared/types/        tipos puros (sem Babylon), reaproveitáveis pela plataforma:
                          GameConfig/GameHandle, eventos, save, manifesto/level/encounters
 public/episodes/catalog.json   id → pasta; lido SÓ pelo main.ts
@@ -125,6 +132,32 @@ public/episodes/catalog.json   id → pasta; lido SÓ pelo main.ts
 - Atenção para a Tarefa 3: **Ctrl+W fecha a aba** do navegador e não pode ser bloqueado; a esquiva
   em Ctrl precisa considerar isso.
 
+### Decisões registradas (Tarefa 3)
+- **Esquiva no C** (decisão do usuário): Ctrl+W fecha a aba e não pode ser bloqueado.
+  Evitar Ctrl em qualquer binding.
+- **Máquina de estados**: cada estado preenche o `MoveIntent` e decide transições; a máquina só
+  troca (e zera a intenção na troca, para nada "vazar" para o quadro seguinte). Velocidades de
+  golpe/esquiva/empurrão usam `MoveIntent.forcedVelocity` (sem aceleração).
+- **Golpes** em 3 fases (preparação → ativa → recuperação) com tempos em `CombatConfig`. Combo: o
+  próximo soco pode ser pedido até `chainInputWindow` após a janela ativa e começa após
+  `chainCancelAfter` da recuperação. A esquiva cancela a recuperação após `dodgeCancelAfter`.
+  O golpe mira: alvo travado > direção do input > frente atual.
+- **Hitbox** é uma esfera matemática (não física) contra a cápsula vertical do alvo; cada ativação
+  guarda quem já acertou (um acerto por alvo por golpe). `DamageSystem` resolve e notifica `onHit`
+  (gancho para VFX/hit stop da Tarefa 4/5).
+- **Mira travada**: escolhe o alvo de menor `distância × (1 + 0,5 × ângulo/ânguloMáx)` dentro de
+  70° da câmera e 15 m; solta se morrer ou passar de 22 m. Q sem alvo recentraliza a câmera atrás
+  do jogador (como no Zelda). Travado: não corre, encara o alvo, A/D fazem strafe em volta dele.
+  A trava continua ao levar golpe.
+- **Esquiva**: livre = rola na direção do input (ou para frente); travada = passo lateral/recuo
+  encarando o alvo. I-frames visíveis (personagem semitransparente).
+- **Inimigos já existem (passivos)**: criados de `encounters.json` via `EnemyFactory` (tipo
+  desconhecido = erro claro `INVALID_EPISODE`). Recebem dano, empurrão, piscam e morrem (caem, somem
+  e saem da cena). IA (Chase/Attack, aviso, 1–2 atacando por vez) e hit stop: Tarefa 4.
+- O jogador já é um `CombatTarget` (facção "player"); morte/renascimento: Tarefa 5.
+- **Ferramentas de dev** (só `mode: "dev"`): painel de estado (canto superior esquerdo),
+  F7 mostra hitboxes, F8 simula um golpe no jogador.
+
 ## Convenções
 - Classes pequenas, responsabilidade única. Comentários em português nas partes não óbvias.
 - Toda lógica de movimento usa deltaTime em segundos (`GameLoop.add(dt => ...)`). Suavizações
@@ -146,7 +179,10 @@ public/episodes/catalog.json   id → pasta; lido SÓ pelo main.ts
   WASD relativo à câmera com aceleração/desaceleração, Shift corre, Espaço pula (coyote time +
   buffer), rotação suave, câmera 3ª pessoa com pointer lock, suavização, limites verticais,
   zoom na roda e colisão com o cenário, InputManager com fontes plugáveis.
-- [ ] Tarefa 3 — Combate básico
+- [x] **Tarefa 3 — Combate básico**: máquina de estados do jogador, combo de 3 socos, chute com
+  empurrão, fases de golpe em CombatConfig, um acerto por alvo por golpe, esquiva (C) com
+  i-frames e stamina, regeneração de stamina, mira travada (Q / botão do meio) com strafe,
+  enquadramento e marcador; inimigos passivos de `encounters.json` como alvos.
 - [ ] Tarefa 4 — Inimigos a partir de dados
 - [ ] Tarefa 5 — Feedback, HUD e checkpoint
 

@@ -1,6 +1,30 @@
 import type { AbstractMesh, TransformNode } from "@babylonjs/core";
+import type { AttackKind } from "../combat/CombatConfig";
 
-/** Estado de locomoção que o visual usa para escolher/misturar animações. */
+export type AttackPhase = "windup" | "active" | "recovery";
+
+/** Ação em andamento, para o visual animar (procedural hoje, Mixamo depois). */
+export type VisualAction =
+  | {
+      kind: AttackKind;
+      /** Posição no combo (0, 1, 2...): alterna o braço, finalizador mais amplo. */
+      comboIndex: number;
+      phase: AttackPhase;
+      /** 0..1 dentro da fase atual. */
+      phaseProgress: number;
+    }
+  | {
+      kind: "dodge";
+      /** 0..1 da esquiva. */
+      progress: number;
+      /** Direção da esquiva no espaço LOCAL do personagem (+z = frente). */
+      localX: number;
+      localZ: number;
+      invulnerable: boolean;
+    }
+  | { kind: "hitStun"; progress: number };
+
+/** Estado que o visual usa para escolher/misturar animações. */
 export interface PlayerVisualState {
   /** Velocidade horizontal atual (m/s). */
   speed: number;
@@ -8,6 +32,7 @@ export interface PlayerVisualState {
   speedRatio: number;
   grounded: boolean;
   verticalSpeed: number;
+  action: VisualAction | null;
 }
 
 /**

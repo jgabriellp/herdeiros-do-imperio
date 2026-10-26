@@ -1,6 +1,10 @@
 import type { ButtonAction } from "./InputTypes";
 
-/** Teclas usam KeyboardEvent.code (posição física: funciona em qualquer layout). */
+/**
+ * Teclas usam KeyboardEvent.code (posição física: funciona em qualquer layout).
+ * Botões do mouse: "MouseLeft", "MouseMiddle", "MouseRight".
+ * Evite Ctrl: Ctrl+W/T/N são atalhos do navegador que a página não consegue bloquear.
+ */
 export interface KeyboardMouseBindings {
   forward: string[];
   back: string[];
@@ -17,6 +21,10 @@ export const DEFAULT_KEYBOARD_MOUSE_BINDINGS: KeyboardMouseBindings = {
   buttons: {
     jump: ["Space"],
     run: ["ShiftLeft", "ShiftRight"],
+    attack: ["MouseLeft"],
+    kick: ["KeyF"],
+    dodge: ["KeyC"],
+    lockOn: ["KeyQ", "MouseMiddle"],
   },
 };
 

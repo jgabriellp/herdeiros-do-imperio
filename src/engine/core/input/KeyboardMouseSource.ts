@@ -1,6 +1,13 @@
 import type { InputSettings, KeyboardMouseBindings } from "./InputBindings";
 import type { ButtonAction, InputFrame, InputSource } from "./InputTypes";
 
+/** Bits de PointerEvent.buttons → nomes usados nos bindings. */
+const MOUSE_BUTTON_BITS: readonly [number, string][] = [
+  [1, "MouseLeft"],
+  [2, "MouseRight"],
+  [4, "MouseMiddle"],
+];
+
 /**
  * Teclado + mouse. Os eventos de teclado são ouvidos no canvas (não na janela),
  * para não capturar digitação em outras partes da página da plataforma.
@@ -25,14 +32,25 @@ export class KeyboardMouseSource implements InputSource {
     this.keysDown.delete(e.code);
   };
   private readonly onBlur = (): void => this.reset();
-  private readonly onPointerDown = (): void => {
+  private readonly onPointerDown = (e: PointerEvent): void => {
     this.canvas.focus();
-    if (!this.isLocked) this.requestLock();
+    if (!this.isLocked) {
+      // O clique que captura o mouse não vira ação (não dá um soco sem querer).
+      this.requestLock();
+      return;
+    }
+    e.preventDefault(); // evita a rolagem automática do botão do meio
+    this.syncMouseButtons(e.buttons);
   };
   private readonly onPointerMove = (e: PointerEvent): void => {
     if (!this.isLocked) return;
     this.lookX += e.movementX;
     this.lookY += e.movementY;
+    // Apertar um 2º botão com outro já pressionado gera pointermove, não pointerdown.
+    this.syncMouseButtons(e.buttons);
+  };
+  private readonly onPointerUp = (e: PointerEvent): void => {
+    this.syncMouseButtons(e.buttons);
   };
   private readonly onWheel = (e: WheelEvent): void => {
     e.preventDefault();
@@ -59,6 +77,7 @@ export class KeyboardMouseSource implements InputSource {
     canvas.addEventListener("pointerdown", this.onPointerDown);
     canvas.addEventListener("wheel", this.onWheel, { passive: false });
     document.addEventListener("pointermove", this.onPointerMove);
+    document.addEventListener("pointerup", this.onPointerUp);
   }
 
   get isLocked(): boolean {
@@ -94,8 +113,21 @@ export class KeyboardMouseSource implements InputSource {
     this.canvas.removeEventListener("pointerdown", this.onPointerDown);
     this.canvas.removeEventListener("wheel", this.onWheel);
     document.removeEventListener("pointermove", this.onPointerMove);
+    document.removeEventListener("pointerup", this.onPointerUp);
     if (this.isLocked) document.exitPointerLock();
     this.reset();
+  }
+
+  /** Atualiza os botões do mouse a partir da máscara `buttons` do evento. */
+  private syncMouseButtons(buttons: number): void {
+    for (const [bit, code] of MOUSE_BUTTON_BITS) {
+      if (buttons & bit) {
+        if (!this.keysDown.has(code)) this.keysTapped.add(code);
+        this.keysDown.add(code);
+      } else {
+        this.keysDown.delete(code);
+      }
+    }
   }
 
   private axis(codes: string[]): number {

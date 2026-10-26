@@ -24,6 +24,17 @@ export interface ThirdPersonCameraConfig {
   fadeEndDistance: number;
   fov: number;
   nearPlane: number;
+  // --- mira travada ---
+  /** Pitch fixo enquanto travado (levemente de cima, para ver o alvo por cima do ombro). */
+  lockPitch: number;
+  /** Suavização da rotação travada (menor que a do mouse: a câmera "acompanha", não salta). */
+  lockRotationSharpness: number;
+  /** Onde a câmera olha entre jogador (0) e alvo (1). */
+  lockLookBias: number;
+  /** Afasta a câmera conforme o alvo se distancia, para enquadrar os dois. */
+  lockDistancePerMeter: number;
+  /** Suavização do ponto observado ao entrar/sair da trava. */
+  lookSharpness: number;
 }
 
 export const DEFAULT_CAMERA_CONFIG: ThirdPersonCameraConfig = {
@@ -43,4 +54,9 @@ export const DEFAULT_CAMERA_CONFIG: ThirdPersonCameraConfig = {
   fadeEndDistance: 0.7,
   fov: 0.95,
   nearPlane: 0.05,
+  lockPitch: 0.32,
+  lockRotationSharpness: 8,
+  lockLookBias: 0.4,
+  lockDistancePerMeter: 0.3,
+  lookSharpness: 10,
 };

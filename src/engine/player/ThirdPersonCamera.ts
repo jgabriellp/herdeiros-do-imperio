@@ -1,7 +1,7 @@
 import { PhysicsEngineV2, PhysicsRaycastResult, TargetCamera, Vector3, type Scene } from "@babylonjs/core";
 import { CollisionLayers } from "../core/CollisionLayers";
 import type { InputManager } from "../core/input/InputManager";
-import { clamp, damp } from "../core/mathUtils";
+import { clamp, damp, shortestAngle, yawFromDirection } from "../core/mathUtils";
 import type { ThirdPersonCameraConfig } from "./CameraConfig";
 
 /** Algo que a câmera segue: devolve a posição dos pés. */
@@ -9,24 +9,34 @@ export interface CameraFollowTarget {
   readonly feetPosition: Readonly<Vector3>;
 }
 
+/** Alvo da mira travada que a câmera enquadra junto com o jogador. */
+export interface CameraLockTarget {
+  readonly feetPosition: Readonly<Vector3>;
+  readonly lockOnHeight: number;
+}
+
 /**
- * Câmera orbital em terceira pessoa controlada pelo mouse/analógico.
- * - yaw/pitch com limites verticais e suavização
- * - segue o alvo com atraso suave
- * - não atravessa paredes: raycast do alvo até a câmera contra a camada WORLD;
- *   aproxima na hora quando bloqueada e volta suavemente quando livre
+ * Câmera orbital em terceira pessoa.
+ * - Livre: mouse/analógico controla yaw/pitch, com limites verticais e suavização.
+ * - Travada: fica atrás do jogador olhando para o alvo e enquadra os dois.
+ * - Não atravessa paredes: raycast do jogador até a câmera contra a camada WORLD;
+ *   aproxima na hora quando bloqueada e volta suavemente quando livre.
  */
 export class ThirdPersonCamera {
   readonly camera: TargetCamera;
-  private targetYaw = 0;
+  private targetYaw: number;
   private targetPitch: number;
-  private _yaw = 0;
+  private _yaw: number;
   private pitch: number;
-  private desiredDistance: number;
+  /** Distância escolhida pelo jogador (roda do mouse). */
+  private userDistance: number;
   private currentDistance: number;
   private readonly followPoint = new Vector3();
+  private readonly lookPoint = new Vector3();
+  private readonly desiredLook = new Vector3();
   private readonly rayEnd = new Vector3();
   private readonly offset = new Vector3();
+  private readonly scaled = new Vector3();
   private readonly hit = new PhysicsRaycastResult();
   private initialized = false;
 
@@ -44,12 +54,7 @@ export class ThirdPersonCamera {
 
     this.targetYaw = this._yaw = initialYaw;
     this.targetPitch = this.pitch = config.initialPitch;
-    this.desiredDistance = this.currentDistance = config.distance;
-  }
-
-  /** Distância atual entre a câmera e o ponto seguido (já considerando colisões). */
-  get distance(): number {
-    return this.currentDistance;
+    this.userDistance = this.currentDistance = config.distance;
   }
 
   /** Yaw atual: define a "frente" do movimento relativo à câmera. */
@@ -57,36 +62,64 @@ export class ThirdPersonCamera {
     return this._yaw;
   }
 
-  update(dt: number): void {
+  /** Distância atual entre a câmera e o ponto seguido (já considerando colisões). */
+  get distance(): number {
+    return this.currentDistance;
+  }
+
+  /** Gira suavemente para ficar atrás do jogador (Q sem alvo, como no Zelda). */
+  recenter(playerYaw: number): void {
+    this.targetYaw = this._yaw + shortestAngle(this._yaw, playerYaw);
+    this.targetPitch = this.config.initialPitch;
+  }
+
+  update(dt: number, lock: CameraLockTarget | null): void {
     const cfg = this.config;
-    const look = this.input.look;
-    this.targetYaw += look.x;
-    this.targetPitch = clamp(this.targetPitch + look.y, cfg.minPitch, cfg.maxPitch);
-    this.desiredDistance = clamp(
-      this.desiredDistance + this.input.zoom * cfg.zoomStep,
-      cfg.minDistance,
-      cfg.maxDistance,
-    );
-
-    const rot = damp(cfg.rotationSharpness, dt);
-    this._yaw += (this.targetYaw - this._yaw) * rot;
-    this.pitch += (this.targetPitch - this.pitch) * rot;
-
     this.updateFollowPoint(dt);
 
-    // Direção do alvo para a câmera (oposta ao "olhar").
+    let wantedDistance: number;
+    let rotationSharpness: number;
+    if (lock) {
+      const t = lock.feetPosition;
+      const dx = t.x - this.followPoint.x;
+      const dz = t.z - this.followPoint.z;
+      // Atrás do jogador, olhando para o alvo (yaw sem "dar a volta" pelo caminho longo).
+      this.targetYaw = this._yaw + shortestAngle(this._yaw, yawFromDirection(dx, dz));
+      this.targetPitch = cfg.lockPitch;
+      const separation = Math.hypot(dx, dz);
+      wantedDistance = clamp(cfg.distance + separation * cfg.lockDistancePerMeter, cfg.minDistance, cfg.maxDistance);
+      this.desiredLook.set(t.x, t.y + lock.lockOnHeight, t.z);
+      Vector3.LerpToRef(this.followPoint, this.desiredLook, cfg.lockLookBias, this.desiredLook);
+      rotationSharpness = cfg.lockRotationSharpness;
+    } else {
+      const look = this.input.look;
+      this.targetYaw += look.x;
+      this.targetPitch = clamp(this.targetPitch + look.y, cfg.minPitch, cfg.maxPitch);
+      this.userDistance = clamp(this.userDistance + this.input.zoom * cfg.zoomStep, cfg.minDistance, cfg.maxDistance);
+      wantedDistance = this.userDistance;
+      this.desiredLook.copyFrom(this.followPoint);
+      rotationSharpness = cfg.rotationSharpness;
+    }
+
+    const rot = damp(rotationSharpness, dt);
+    this._yaw += (this.targetYaw - this._yaw) * rot;
+    this.pitch += (this.targetPitch - this.pitch) * rot;
+    Vector3.LerpToRef(this.lookPoint, this.desiredLook, damp(cfg.lookSharpness, dt), this.lookPoint);
+
+    // Direção do jogador para a câmera (oposta ao "olhar").
     const cosPitch = Math.cos(this.pitch);
     this.offset.set(-Math.sin(this._yaw) * cosPitch, Math.sin(this.pitch), -Math.cos(this._yaw) * cosPitch);
 
-    const allowed = this.collisionDistance(this.desiredDistance);
+    const allowed = this.collisionDistance(wantedDistance);
     if (allowed < this.currentDistance) {
       this.currentDistance = allowed; // obstáculo: aproxima imediatamente
     } else {
       this.currentDistance += (allowed - this.currentDistance) * damp(cfg.distanceSharpness, dt);
     }
 
-    this.camera.position.copyFrom(this.followPoint).addInPlace(this.offset.scale(this.currentDistance));
-    this.camera.setTarget(this.followPoint);
+    this.offset.scaleToRef(this.currentDistance, this.scaled);
+    this.camera.position.copyFrom(this.followPoint).addInPlace(this.scaled);
+    this.camera.setTarget(this.lookPoint);
   }
 
   dispose(): void {
@@ -101,6 +134,7 @@ export class ThirdPersonCamera {
     const tz = feet.z;
     if (!this.initialized) {
       this.followPoint.set(tx, ty, tz);
+      this.lookPoint.copyFrom(this.followPoint);
       this.initialized = true;
       return;
     }
@@ -115,7 +149,8 @@ export class ThirdPersonCamera {
     const physics = this.scene.getPhysicsEngine();
     if (!(physics instanceof PhysicsEngineV2)) return wanted;
     const reach = wanted + this.config.collisionMargin;
-    this.rayEnd.copyFrom(this.followPoint).addInPlace(this.offset.scale(reach));
+    this.offset.scaleToRef(reach, this.scaled);
+    this.rayEnd.copyFrom(this.followPoint).addInPlace(this.scaled);
     physics.raycastToRef(this.followPoint, this.rayEnd, this.hit, { collideWith: CollisionLayers.WORLD });
     if (!this.hit.hasHit) return wanted;
     return Math.max(0.2, Math.min(wanted, this.hit.hitDistance - this.config.collisionMargin));

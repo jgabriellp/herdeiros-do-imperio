@@ -1,11 +1,7 @@
 import { Engine, Scene } from "@babylonjs/core";
 import type { GameConfig, Vec3Data } from "../../shared/types";
 import { EpisodeLoader, type LoadedEpisode } from "../episodes/EpisodeLoader";
-import { DEFAULT_CAMERA_CONFIG } from "../player/CameraConfig";
-import { Player } from "../player/Player";
-import { ThirdPersonCamera } from "../player/ThirdPersonCamera";
 import { SaveManager } from "../save/SaveManager";
-import { ControlsHint } from "../ui/ControlsHint";
 import { MessageOverlay } from "../ui/MessageOverlay";
 import { createDebugMarkers } from "../world/DebugMarkers";
 import { ProceduralLevelBuilder, type BuiltLevel } from "../world/ProceduralLevelBuilder";
@@ -15,18 +11,11 @@ import { DisposeStack } from "./DisposeStack";
 import { GameError } from "./GameError";
 import type { GameEvents } from "./GameEvents";
 import { GameLoop } from "./GameLoop";
-import { DEFAULT_INPUT_SETTINGS, DEFAULT_KEYBOARD_MOUSE_BINDINGS } from "./input/InputBindings";
-import { InputManager } from "./input/InputManager";
-import { KeyboardMouseSource } from "./input/KeyboardMouseSource";
+import { createGameplay } from "./GameplaySystems";
 import { enablePhysics } from "./Physics";
 
 /** Sinaliza que o boot foi interrompido por um dispose(); não é erro. */
 class BootCancelled extends Error {}
-
-const CONTROLS_HINT = [
-  "Clique para jogar",
-  "WASD mover · Shift correr · Espaço pular · Mouse câmera · Roda zoom · Esc soltar o mouse",
-];
 
 /**
  * Uma sessão de jogo de um episódio: cria engine, física, cena e sistemas,
@@ -112,7 +101,17 @@ export class Game {
 
     const level = this.buildWorld(scene, episode);
     const spawn = this.restoreProgress(save, episode);
-    this.createPlayerAndCamera(scene, host, loop, level, spawn);
+    createGameplay({
+      scene,
+      host,
+      loop,
+      disposables: this.disposables,
+      shadows: level?.lighting.shadows ?? null,
+      spawn,
+      playerAttributes: save.current.player,
+      encounters: episode.encounters,
+      devMode: config.mode === "dev",
+    });
 
     if (config.mode === "dev") {
       const inspector = new DevInspector(scene);
@@ -131,43 +130,8 @@ export class Game {
     const { manifest, level } = episode;
     const built = level?.type === "procedural" ? new ProceduralLevelBuilder(scene).build(level.data) : null;
 
-    if (this.config.mode === "dev") {
-      createDebugMarkers(scene, manifest);
-      // Inimigos serão criados na Tarefa 4; por ora só confirmamos a leitura.
-      console.info(`[Game] encounters: ${episode.encounters.enemies.length} inimigo(s) validado(s).`);
-    }
+    if (this.config.mode === "dev") createDebugMarkers(scene, manifest);
     return built;
-  }
-
-  private createPlayerAndCamera(
-    scene: Scene,
-    host: CanvasHost,
-    loop: GameLoop,
-    level: BuiltLevel | null,
-    spawn: Vec3Data,
-  ): void {
-    const input = new InputManager();
-    input.addSource(new KeyboardMouseSource(host.canvas, DEFAULT_KEYBOARD_MOUSE_BINDINGS, DEFAULT_INPUT_SETTINGS));
-    this.disposables.add("input", () => input.dispose());
-
-    const player = new Player(scene, input, spawn, level?.lighting.shadows ?? null);
-    this.disposables.add("player", () => player.dispose());
-
-    const camera = new ThirdPersonCamera(scene, player.motor, input, DEFAULT_CAMERA_CONFIG, player.motor.facingYaw);
-    this.disposables.add("camera", () => camera.dispose());
-
-    const hint = new ControlsHint(host.root, host.canvas, CONTROLS_HINT);
-    this.disposables.add("controlsHint", () => hint.dispose());
-
-    const removers = [
-      loop.add((dt) => input.update(dt), "input"),
-      loop.add((dt) => player.controller.update(dt, camera.yaw), "update"),
-      loop.add((dt) => {
-        camera.update(dt);
-        player.fadeForCamera(camera.distance, DEFAULT_CAMERA_CONFIG.fadeStartDistance, DEFAULT_CAMERA_CONFIG.fadeEndDistance);
-      }, "late"),
-    ];
-    this.disposables.add("loopSystems", () => removers.forEach((remove) => remove()));
   }
 
   /**
