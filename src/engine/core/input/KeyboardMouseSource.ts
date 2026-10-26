@@ -25,11 +25,11 @@ export class KeyboardMouseSource implements InputSource {
     this.keysDown.delete(e.code);
   };
   private readonly onBlur = (): void => this.reset();
-  private readonly onMouseDown = (): void => {
+  private readonly onPointerDown = (): void => {
     this.canvas.focus();
     if (!this.isLocked) this.requestLock();
   };
-  private readonly onMouseMove = (e: MouseEvent): void => {
+  private readonly onPointerMove = (e: PointerEvent): void => {
     if (!this.isLocked) return;
     this.lookX += e.movementX;
     this.lookY += e.movementY;
@@ -54,9 +54,11 @@ export class KeyboardMouseSource implements InputSource {
     canvas.addEventListener("keydown", this.onKeyDown);
     canvas.addEventListener("keyup", this.onKeyUp);
     canvas.addEventListener("blur", this.onBlur);
-    canvas.addEventListener("mousedown", this.onMouseDown);
+    // Eventos de ponteiro (não de mouse): o Babylon cancela o pointerdown no canvas,
+    // e com isso o navegador deixa de disparar mousedown/mousemove de compatibilidade.
+    canvas.addEventListener("pointerdown", this.onPointerDown);
     canvas.addEventListener("wheel", this.onWheel, { passive: false });
-    document.addEventListener("mousemove", this.onMouseMove);
+    document.addEventListener("pointermove", this.onPointerMove);
   }
 
   get isLocked(): boolean {
@@ -89,9 +91,9 @@ export class KeyboardMouseSource implements InputSource {
     this.canvas.removeEventListener("keydown", this.onKeyDown);
     this.canvas.removeEventListener("keyup", this.onKeyUp);
     this.canvas.removeEventListener("blur", this.onBlur);
-    this.canvas.removeEventListener("mousedown", this.onMouseDown);
+    this.canvas.removeEventListener("pointerdown", this.onPointerDown);
     this.canvas.removeEventListener("wheel", this.onWheel);
-    document.removeEventListener("mousemove", this.onMouseMove);
+    document.removeEventListener("pointermove", this.onPointerMove);
     if (this.isLocked) document.exitPointerLock();
     this.reset();
   }
