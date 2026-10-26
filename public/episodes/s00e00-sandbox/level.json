@@ -1,0 +1,30 @@
+{
+  "formatVersion": 1,
+  "ground": { "width": 80, "depth": 80, "color": "#6f8f4e" },
+  "sky": { "topColor": "#3f7cc4", "horizonColor": "#cfe3f2" },
+  "lighting": {
+    "sunDirection": { "x": -0.5, "y": -1, "z": 0.35 },
+    "sunIntensity": 1.6,
+    "ambientIntensity": 0.55
+  },
+  "obstacles": [
+    { "shape": "box", "position": { "x": 0, "y": 1.5, "z": -39.5 }, "size": { "x": 80, "y": 3, "z": 1 }, "color": "#8b7355" },
+    { "shape": "box", "position": { "x": 0, "y": 1.5, "z": 39.5 }, "size": { "x": 80, "y": 3, "z": 1 }, "color": "#8b7355" },
+    { "shape": "box", "position": { "x": -39.5, "y": 1.5, "z": 0 }, "size": { "x": 1, "y": 3, "z": 78 }, "color": "#8b7355" },
+    { "shape": "box", "position": { "x": 39.5, "y": 1.5, "z": 0 }, "size": { "x": 1, "y": 3, "z": 78 }, "color": "#8b7355" },
+
+    { "shape": "cylinder", "position": { "x": -8, "y": 2.5, "z": 8 }, "diameter": 1.4, "height": 5, "color": "#b8ad9a" },
+    { "shape": "cylinder", "position": { "x": 8, "y": 2.5, "z": 8 }, "diameter": 1.4, "height": 5, "color": "#b8ad9a" },
+    { "shape": "cylinder", "position": { "x": -8, "y": 2.5, "z": 20 }, "diameter": 1.4, "height": 5, "color": "#b8ad9a" },
+    { "shape": "cylinder", "position": { "x": 8, "y": 2.5, "z": 20 }, "diameter": 1.4, "height": 5, "color": "#b8ad9a" },
+
+    { "shape": "box", "position": { "x": -14, "y": 1, "z": -6 }, "size": { "x": 6, "y": 2, "z": 1 }, "rotationY": 0.4, "color": "#9c8b72" },
+    { "shape": "box", "position": { "x": 15, "y": 0.75, "z": -8 }, "size": { "x": 4, "y": 1.5, "z": 4 }, "color": "#7d6a55" },
+    { "shape": "box", "position": { "x": 15, "y": 2, "z": -14 }, "size": { "x": 4, "y": 4, "z": 4 }, "color": "#7d6a55" },
+
+    { "shape": "box", "position": { "x": -4, "y": 4, "z": -10 }, "size": { "x": 1, "y": 1, "z": 1 }, "color": "#c4884a", "mass": 5 },
+    { "shape": "box", "position": { "x": -3.6, "y": 6, "z": -10.2 }, "size": { "x": 1, "y": 1, "z": 1 }, "color": "#c4884a", "mass": 5 },
+    { "shape": "box", "position": { "x": -4.3, "y": 8, "z": -9.8 }, "size": { "x": 1, "y": 1, "z": 1 }, "color": "#c4884a", "mass": 5 },
+    { "shape": "box", "position": { "x": 4, "y": 5, "z": -10 }, "size": { "x": 1.5, "y": 1.5, "z": 1.5 }, "rotationY": 0.7, "color": "#c4884a", "mass": 10 }
+  ]
+}

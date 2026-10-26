@@ -1,0 +1,7 @@
+{
+  "formatVersion": 1,
+  "episodes": [
+    { "id": "s00e00", "folder": "s00e00-sandbox" },
+    { "id": "s01e01", "folder": "s01e01-vandalos-na-colheita" }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "formatVersion": 1,
+  "id": "s01e01",
+  "season": 1,
+  "episode": 1,
+  "title": "Vândalos na Colheita",
+  "description": "A vida pacata na fazenda é interrompida por saqueadores na época da colheita.",
+  "version": "0.0.1",
+  "requires": [],
+  "spawnPoint": { "x": 0, "y": 1, "z": 0 },
+  "checkpoints": [
+    { "id": "start", "position": { "x": 0, "y": 1, "z": 0 } }
+  ]
+}

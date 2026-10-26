@@ -1,0 +1,16 @@
+{
+  "formatVersion": 1,
+  "id": "s00e00",
+  "season": 0,
+  "episode": 0,
+  "title": "Campo de Treino",
+  "description": "Episódio de testes de mecânicas: movimento, combate e inimigos.",
+  "version": "0.1.0",
+  "spawnPoint": { "x": 0, "y": 1, "z": 0 },
+  "level": { "type": "procedural", "file": "level.json" },
+  "encounters": "encounters.json",
+  "checkpoints": [
+    { "id": "start", "position": { "x": 0, "y": 1, "z": 0 } },
+    { "id": "arena", "position": { "x": 0, "y": 1, "z": 14 } }
+  ]
+}
