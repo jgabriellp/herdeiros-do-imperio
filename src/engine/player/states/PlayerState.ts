@@ -9,7 +9,7 @@ import type { InputManager } from "../../core/input/InputManager";
 import type { PlayerStats } from "../PlayerStats";
 import type { VisualAction } from "../PlayerVisual";
 
-export type PlayerStateName = "Idle" | "Move" | "Run" | "Jump" | "Attack" | "HitStun" | "Dodge";
+export type PlayerStateName = "Idle" | "Move" | "Run" | "Jump" | "Attack" | "HitStun" | "Dodge" | "Dead";
 
 /** Parâmetros de entrada de cada estado (void = nenhum). */
 export interface PlayerStateParams {
@@ -21,6 +21,7 @@ export interface PlayerStateParams {
   Attack: { attack: AttackId; comboIndex: number };
   HitStun: { hit: HitInfo };
   Dodge: void;
+  Dead: void;
 }
 
 /** Tudo que os estados podem ler/escrever. Montado pelo PlayerController. */

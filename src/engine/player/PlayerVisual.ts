@@ -22,7 +22,8 @@ export type VisualAction =
       localZ: number;
       invulnerable: boolean;
     }
-  | { kind: "hitStun"; progress: number };
+  | { kind: "hitStun"; progress: number }
+  | { kind: "dead"; elapsed: number };
 
 /** Estado que o visual usa para escolher/misturar animações. */
 export interface PlayerVisualState {

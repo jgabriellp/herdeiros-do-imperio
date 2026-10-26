@@ -48,12 +48,14 @@ export class PlayerController {
     this.machine.update(dt);
     this.motor.step(dt, this.ctx.intent);
 
+    // Caiu para fora do mundo: volta ao ponto de renascimento atual (último checkpoint).
     if (this.motor.feetPosition.y < this.movement.fallRespawnY) this.motor.teleport(this.respawnPoint);
     this.syncVisual(dt);
   }
 
   private updateLock(cameraYaw: number): void {
     const feet = this.motor.feetPosition;
+    if (!this.stats.isAlive) return;
     if (this.input.wasPressed("lockOn")) {
       if (this.lock.target) {
         this.lock.release();

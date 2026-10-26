@@ -107,9 +107,12 @@ export class Game {
       loop,
       disposables: this.disposables,
       shadows: level?.lighting.shadows ?? null,
+      manifest,
       spawn,
       playerAttributes: save.current.player,
       encounters: episode.encounters,
+      save,
+      events,
       devMode: config.mode === "dev",
     });
 

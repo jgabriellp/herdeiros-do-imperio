@@ -17,6 +17,7 @@ const HIT_FLASH_COLOR = new Color3(0.9, 0.15, 0.1);
 /** Inclinação máxima para frente ao correr (radianos): dá leitura de aceleração. */
 const MAX_LEAN = 0.12;
 const LEAN_SHARPNESS = 10;
+const DEATH_FALL_DURATION = 0.6;
 /** Transparência durante os i-frames da esquiva (leitura de "intocável"). */
 const INVULNERABLE_VISIBILITY = 0.45;
 
@@ -118,6 +119,13 @@ export class CapsuleVisual implements PlayerVisual {
         this.body.rotation.x = -0.35 * (1 - action.progress);
         if (action.progress < 0.3) this.bodyMaterial.emissiveColor.copyFrom(HIT_FLASH_COLOR);
         return;
+      case "dead": {
+        // Cai de costas.
+        const fall = Math.min(1, action.elapsed / DEATH_FALL_DURATION);
+        this.body.rotation.x = -(Math.PI / 2) * fall * fall;
+        if (action.elapsed < 0.15) this.bodyMaterial.emissiveColor.copyFrom(HIT_FLASH_COLOR);
+        return;
+      }
     }
   }
 

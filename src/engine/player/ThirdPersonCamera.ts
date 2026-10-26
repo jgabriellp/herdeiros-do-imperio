@@ -4,6 +4,11 @@ import type { InputManager } from "../core/input/InputManager";
 import { clamp, damp, shortestAngle, yawFromDirection } from "../core/mathUtils";
 import type { ThirdPersonCameraConfig } from "./CameraConfig";
 
+/** Fonte de tremida (ex.: vfx/CameraShake): deslocamento somado à câmera. */
+export interface CameraShakeSource {
+  readonly offset: Readonly<Vector3>;
+}
+
 /** Algo que a câmera segue: devolve a posição dos pés. */
 export interface CameraFollowTarget {
   readonly feetPosition: Readonly<Vector3>;
@@ -38,7 +43,9 @@ export class ThirdPersonCamera {
   private readonly offset = new Vector3();
   private readonly scaled = new Vector3();
   private readonly hit = new PhysicsRaycastResult();
+  private readonly shakenLook = new Vector3();
   private initialized = false;
+  private shake: CameraShakeSource | null = null;
 
   constructor(
     private readonly scene: Scene,
@@ -65,6 +72,17 @@ export class ThirdPersonCamera {
   /** Distância atual entre a câmera e o ponto seguido (já considerando colisões). */
   get distance(): number {
     return this.currentDistance;
+  }
+
+  setShakeSource(shake: CameraShakeSource | null): void {
+    this.shake = shake;
+  }
+
+  /** Coloca a câmera atrás do jogador na hora (ex.: ao renascer). */
+  snapBehind(playerYaw: number): void {
+    this.targetYaw = this._yaw = playerYaw;
+    this.targetPitch = this.pitch = this.config.initialPitch;
+    this.initialized = false;
   }
 
   /** Gira suavemente para ficar atrás do jogador (Q sem alvo, como no Zelda). */
@@ -119,7 +137,13 @@ export class ThirdPersonCamera {
 
     this.offset.scaleToRef(this.currentDistance, this.scaled);
     this.camera.position.copyFrom(this.followPoint).addInPlace(this.scaled);
-    this.camera.setTarget(this.lookPoint);
+    if (this.shake) {
+      // Desloca câmera e alvo juntos: treme a imagem sem girar o mundo.
+      this.camera.position.addInPlace(this.shake.offset);
+      this.camera.setTarget(this.lookPoint.addToRef(this.shake.offset, this.shakenLook));
+    } else {
+      this.camera.setTarget(this.lookPoint);
+    }
   }
 
   dispose(): void {

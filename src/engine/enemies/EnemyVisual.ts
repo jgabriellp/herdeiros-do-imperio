@@ -30,6 +30,8 @@ const HIT_TILT = 0.3;
  */
 export class EnemyVisual {
   readonly root: TransformNode;
+  /** Ponto acima da cabeça, para a barra de vida flutuante. */
+  readonly headAnchor: TransformNode;
   readonly shadowCasters: readonly AbstractMesh[];
   private readonly body: TransformNode;
   private readonly arm: TransformNode;
@@ -43,6 +45,9 @@ export class EnemyVisual {
     this.root = new TransformNode(`${name}_visual`, scene);
     this.body = new TransformNode(`${name}_body`, scene);
     this.body.parent = this.root;
+    this.headAnchor = new TransformNode(`${name}_head`, scene);
+    this.headAnchor.parent = this.root;
+    this.headAnchor.position.y = height + 0.35;
 
     this.bodyMaterial = new StandardMaterial(`${name}_bodyMat`, scene);
     this.bodyMaterial.diffuseColor = Color3.FromHexString(type.bodyColor);

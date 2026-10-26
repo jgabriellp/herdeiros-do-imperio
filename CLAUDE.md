@@ -55,9 +55,10 @@ src/engine/combat/       CombatConfig (TODOS os números do combate), CombatType
 src/engine/enemies/      Enemy, EnemyStateMachine + states/ (Idle, Chase, Attack, HitStun, Dead),
                          AttackCoordinator (fichas de ataque), EnemyVisual, EnemyFactory, EnemyManager,
                          EnemyConfig (tipos, IA, golpe, regras do grupo)
-src/engine/ui/           MessageOverlay, ControlsHint, DevStatsPanel (DOM), TargetMarker (3D);
-                         HUD (Babylon GUI) virá na Tarefa 5
-src/engine/vfx/          HitStop; partículas e tremida de câmera na Tarefa 5
+src/engine/progress/     CheckpointSystem, RespawnSystem, EpisodeCompletion
+src/engine/ui/           Hud e EnemyHealthBars (Babylon GUI), TargetMarker (3D),
+                         MessageOverlay, ControlsHint, DevStatsPanel (DOM)
+src/engine/vfx/          HitStop, ImpactParticles, CameraShake, ImpactFeedback (liga tudo ao onHit)
 src/shared/types/        tipos puros (sem Babylon), reaproveitáveis pela plataforma:
                          GameConfig/GameHandle, eventos, save, manifesto/level/encounters
 public/episodes/catalog.json   id → pasta; lido SÓ pelo main.ts
@@ -177,7 +178,28 @@ public/episodes/catalog.json   id → pasta; lido SÓ pelo main.ts
   continuam em tempo real, então nenhum toque se perde durante a pausa.
 - Dano do golpe do inimigo vem de `stats.damage` do encounters.json; tempos/alcance/empurrão vêm
   do tipo em `EnemyConfig`.
-- O jogador ainda não morre (vida chega a 0 e os inimigos param): Tarefa 5.
+
+### Decisões registradas (Tarefa 5)
+- **Feedback de impacto** centralizado em `vfx/ImpactFeedback` (inscrito em `DamageSystem.onHit`):
+  hit stop + faíscas em todo acerto; poeira e tremida de câmera em golpes fortes (`heavy`:
+  3º soco e chute); tremida leve quando o jogador é atingido. Partículas usam pool (4 sistemas
+  de cada) e textura gerada em código. A tremida usa tempo real (continua no hit stop).
+- **HUD em Babylon GUI**: vida (com número) e stamina no canto superior esquerdo; a barra de
+  stamina fica laranja quando não dá para esquivar. Barras de vida dos inimigos ligadas a um nó
+  acima da cabeça, visíveis só quando o inimigo está lutando ou ferido. Painel de dev foi para o
+  canto superior direito.
+- **Checkpoint**: passar a 2 m de um checkpoint do manifesto diferente do atual → `save.setCurrent`,
+  evento `checkpointReached` e aviso "Checkpoint salvo". O ponto de renascimento e o de "caiu do
+  mundo" passam a ser o último checkpoint.
+- **Morte**: novo estado `Dead` do jogador (não estava na lista original, mas é necessário).
+  Tela escurece com "Você caiu"; após 2,5 s renasce no último checkpoint salvo com vida e
+  stamina cheias e 2 s de invulnerabilidade. Inimigos vivos voltam às posições iniciais
+  (mantendo a vida perdida); mortos continuam mortos.
+- **Conclusão**: quando todos os inimigos criados estão mortos → `save.markEpisodeCompleted`,
+  evento `episodeCompleted` e mensagem "Episódio concluído" (com o título do episódio). Episódio
+  sem inimigos não conclui por esta regra (vai precisar de outra condição no futuro).
+- Pasta nova `engine/progress/` para as regras de progresso (não são combate nem carregamento).
+- F6 (dev) derrota todos os inimigos para testar a conclusão.
 
 ## Convenções
 - Classes pequenas, responsabilidade única. Comentários em português nas partes não óbvias.
@@ -207,7 +229,12 @@ public/episodes/catalog.json   id → pasta; lido SÓ pelo main.ts
 - [x] **Tarefa 4 — Inimigos a partir de dados**: IA com Idle/Chase/Attack/HitStun/Dead, aviso
   visual antes do golpe, no máximo 2 atacando por vez (os outros rondam), alerta de grupo,
   knockback + piscar vermelho + hit stop de ~60 ms, 3 inimigos com atributos diferentes.
-- [ ] Tarefa 5 — Feedback, HUD e checkpoint
+- [x] **Tarefa 5 — Feedback, HUD e checkpoint**: faíscas/poeira no impacto, tremida nos golpes
+  fortes, HUD (vida/stamina) e vida flutuante dos inimigos em Babylon GUI, checkpoints salvos ao
+  passar, morte e renascimento no último checkpoint, conclusão do episódio (save + evento +
+  mensagem). Ciclo carregar → jogar → salvar → avisar validado no sandbox.
+
+**Fundação concluída.** Próximo passo depende do usuário (ver "Próximas fases").
 
 ## Próximas fases (não implementar sem pedido; apenas não bloquear)
 Espada e escudo com bloqueio, arco com mira por cima do ombro, troca de armas, modelos e

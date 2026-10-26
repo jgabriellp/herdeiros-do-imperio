@@ -1,6 +1,6 @@
 /**
  * Modo dev: painel de texto com estado do jogador, vida, stamina e alvo.
- * Provisório até o HUD com Babylon GUI (Tarefa 5).
+ * Fica no canto superior direito (o HUD do jogo ocupa o esquerdo).
  */
 export class DevStatsPanel {
   private readonly el: HTMLPreElement;
@@ -12,7 +12,7 @@ export class DevStatsPanel {
     Object.assign(this.el.style, {
       position: "absolute",
       top: "8px",
-      left: "8px",
+      right: "8px",
       margin: "0",
       padding: "6px 10px",
       borderRadius: "4px",

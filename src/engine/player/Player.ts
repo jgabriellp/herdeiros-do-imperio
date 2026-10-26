@@ -25,6 +25,8 @@ export interface PlayerDeps {
   spawn: Vec3Data;
   shadows: ShadowGenerator | null;
   events: PlayerControllerEvents;
+  /** Chamado uma vez quando a vida chega a zero. */
+  onDied(): void;
 }
 
 /**
@@ -48,11 +50,13 @@ export class Player implements CombatTarget {
   private readonly damage: DamageSystem;
   private readonly combat: CombatConfig;
   private postHitTimer = 0;
+  private readonly onDied: () => void;
 
   constructor(deps: PlayerDeps) {
     const shape = DEFAULT_CAPSULE_CONFIG;
     this.damage = deps.damage;
     this.combat = deps.combat;
+    this.onDied = deps.onDied;
     this.motor = new CharacterMotor(deps.scene, deps.spawn, shape, DEFAULT_MOVEMENT_CONFIG, CollisionLayers.PLAYER);
     // Trocar por um visual .glb (Mixamo) = trocar só esta linha.
     this.visual = new CapsuleVisual(deps.scene, shape.height, shape.radius);
@@ -119,10 +123,25 @@ export class Player implements CombatTarget {
   receiveHit(hit: HitInfo): HitOutcome {
     if (!this.isAlive || this.isInvulnerable) return "ignored";
     this.stats.takeDamage(hit.damage);
+    if (!this.stats.isAlive) {
+      this.lock.release();
+      this.machine.change("Dead");
+      this.onDied();
+      return "killed";
+    }
     this.postHitTimer = this.combat.playerHitReaction.postHitInvulnerability;
     this.machine.change("HitStun", { hit });
-    // Morte e renascimento no checkpoint: Tarefa 5.
-    return this.stats.isAlive ? "hit" : "killed";
+    return "hit";
+  }
+
+  /** Volta à vida em `feet` com vida e stamina cheias e invulnerabilidade breve. */
+  respawn(feet: Vec3Data): void {
+    this.motor.teleport(feet);
+    this.stats.health = this.stats.maxHealth;
+    this.stats.stamina = this.stats.maxStamina;
+    this.postHitTimer = this.combat.death.respawnInvulnerability;
+    this.lock.release();
+    this.machine.change("Idle");
   }
 
   /** Deixa o personagem transparente quando a câmera chega perto demais. */

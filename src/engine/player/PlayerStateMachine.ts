@@ -1,4 +1,5 @@
 import { AttackState } from "./states/AttackState";
+import { PlayerDeadState } from "./states/DeadState";
 import { DodgeState } from "./states/DodgeState";
 import { HitStunState } from "./states/HitStunState";
 import { JumpState } from "./states/JumpState";
@@ -28,6 +29,7 @@ export class PlayerStateMachine implements PlayerStateChanger {
       Attack: new AttackState(this, ctx),
       HitStun: new HitStunState(this, ctx),
       Dodge: new DodgeState(this, ctx),
+      Dead: new PlayerDeadState(this, ctx),
     };
     this._current = this.states.Idle;
     this._current.enter(undefined as never);

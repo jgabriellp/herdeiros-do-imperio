@@ -1,3 +1,4 @@
+import type { Vector3 } from "@babylonjs/core";
 import type { CombatTarget, Faction, HitInfo, HitOutcome } from "./CombatTypes";
 import type { Hitbox } from "./Hitbox";
 
@@ -14,6 +15,8 @@ export interface HitEvent {
   attackerFaction: Faction;
   hit: HitInfo;
   outcome: HitOutcome;
+  /** Onde o golpe acertou (centro da hitbox). Válido só durante o callback. */
+  point: Readonly<Vector3>;
 }
 
 type HitListener = (event: HitEvent) => void;
@@ -70,7 +73,7 @@ export class DamageSystem {
       };
       const outcome = target.receiveHit(hit);
       if (outcome === "ignored") continue;
-      const event: HitEvent = { target, attackerFaction, hit, outcome };
+      const event: HitEvent = { target, attackerFaction, hit, outcome, point: hitbox.center };
       events.push(event);
       for (const listener of this.listeners) listener(event);
     }

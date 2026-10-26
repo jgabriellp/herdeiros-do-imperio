@@ -1,5 +1,5 @@
 import type { Scene, ShadowGenerator } from "@babylonjs/core";
-import type { EncountersData, PlayerAttributes, Vec3Data } from "../../shared/types";
+import type { EncountersData, EpisodeManifest, PlayerAttributes, Vec3Data } from "../../shared/types";
 import { DEFAULT_COMBAT_CONFIG } from "../combat/CombatConfig";
 import { DamageSystem } from "../combat/DamageSystem";
 import { HitboxDebugView } from "../combat/HitboxDebugView";
@@ -7,13 +7,23 @@ import { EnemyManager } from "../enemies/EnemyManager";
 import { DEFAULT_CAMERA_CONFIG } from "../player/CameraConfig";
 import { Player } from "../player/Player";
 import { ThirdPersonCamera } from "../player/ThirdPersonCamera";
+import { CheckpointSystem } from "../progress/CheckpointSystem";
+import { EpisodeCompletion } from "../progress/EpisodeCompletion";
+import { RespawnSystem } from "../progress/RespawnSystem";
+import type { SaveManager } from "../save/SaveManager";
 import { ControlsHint } from "../ui/ControlsHint";
 import { DevStatsPanel } from "../ui/DevStatsPanel";
+import { EnemyHealthBars } from "../ui/EnemyHealthBars";
+import { Hud } from "../ui/Hud";
 import { TargetMarker } from "../ui/TargetMarker";
+import { CameraShake } from "../vfx/CameraShake";
 import { HitStop } from "../vfx/HitStop";
+import { createImpactFeedback } from "../vfx/ImpactFeedback";
+import { ImpactParticles } from "../vfx/ImpactParticles";
 import type { CanvasHost } from "./CanvasHost";
 import { DevHotkeys } from "./DevHotkeys";
 import type { DisposeStack } from "./DisposeStack";
+import type { GameEvents } from "./GameEvents";
 import type { GameLoop } from "./GameLoop";
 import { DEFAULT_INPUT_SETTINGS, DEFAULT_KEYBOARD_MOUSE_BINDINGS } from "./input/InputBindings";
 import { InputManager } from "./input/InputManager";
@@ -31,18 +41,23 @@ export interface GameplayDeps {
   loop: GameLoop;
   disposables: DisposeStack;
   shadows: ShadowGenerator | null;
+  manifest: EpisodeManifest;
+  /** Onde o jogador começa (checkpoint salvo ou spawn do manifesto). */
   spawn: Vec3Data;
   playerAttributes: PlayerAttributes;
   encounters: EncountersData;
+  save: SaveManager;
+  events: GameEvents;
   devMode: boolean;
 }
 
 /**
- * Cria e liga os sistemas de jogo de um episódio (input, jogador, câmera,
- * combate, inimigos, ferramentas de dev) e registra cada um no GameLoop e no DisposeStack.
+ * Cria e liga os sistemas de jogo de um episódio (input, jogador, câmera, combate,
+ * inimigos, efeitos, HUD, progresso, ferramentas de dev) e registra cada um
+ * no GameLoop e no DisposeStack.
  */
 export function createGameplay(deps: GameplayDeps): void {
-  const { scene, host, loop, disposables } = deps;
+  const { scene, host, loop, disposables, manifest } = deps;
   const combat = DEFAULT_COMBAT_CONFIG;
 
   const input = new InputManager();
@@ -52,8 +67,12 @@ export function createGameplay(deps: GameplayDeps): void {
   const damage = new DamageSystem();
   disposables.add("damageSystem", () => damage.dispose());
 
-  // A câmera é criada depois do jogador, mas o jogador pode pedir recentralização a qualquer momento.
+  const hud = new Hud(scene, combat.dodge.staminaCost);
+  disposables.add("hud", () => hud.dispose());
+
+  // Criados depois do jogador, mas usados pelos callbacks dele.
   let camera: ThirdPersonCamera | null = null;
+  let respawn: RespawnSystem | null = null;
   const player = new Player({
     scene,
     input,
@@ -63,6 +82,7 @@ export function createGameplay(deps: GameplayDeps): void {
     spawn: deps.spawn,
     shadows: deps.shadows,
     events: { onRecenterRequest: (yaw) => camera?.recenter(yaw) },
+    onDied: () => respawn?.playerDied(),
   });
   disposables.add("player", () => player.dispose());
 
@@ -71,32 +91,76 @@ export function createGameplay(deps: GameplayDeps): void {
   disposables.add("enemies", () => enemies.dispose());
   enemies.spawnAll(deps.encounters.enemies);
 
-  // Hit stop: todo acerto (do jogador ou nele) congela a lógica por um instante.
-  const hitStop = new HitStop(scene);
-  disposables.add("hitStop", () => hitStop.dispose());
-  loop.setFreezeSource(() => hitStop.frozen);
-  const stopOnHit = damage.onHit((e) => hitStop.trigger(e.hit.heavy ? combat.hitStop.heavy : combat.hitStop.light));
-
   const cam = new ThirdPersonCamera(scene, player.motor, input, DEFAULT_CAMERA_CONFIG, player.motor.facingYaw);
   camera = cam;
   disposables.add("camera", () => cam.dispose());
 
+  // --- impacto: hit stop, partículas e tremida a cada acerto ---
+  const hitStop = new HitStop(scene);
+  disposables.add("hitStop", () => hitStop.dispose());
+  loop.setFreezeSource(() => hitStop.frozen);
+  const particles = new ImpactParticles(scene);
+  disposables.add("impactParticles", () => particles.dispose());
+  const shake = new CameraShake();
+  cam.setShakeSource(shake);
+  const stopFeedback = damage.onHit(createImpactFeedback(combat, hitStop, particles, shake));
+
+  // --- progresso: checkpoints, morte/renascimento, conclusão do episódio ---
+  const checkpoints = new CheckpointSystem(
+    manifest.id,
+    manifest.checkpoints,
+    manifest.spawnPoint,
+    deps.save,
+    deps.events,
+    (cp) => {
+      player.controller.setRespawnPoint(cp.position);
+      hud.notify("Checkpoint salvo");
+    },
+  );
+  player.controller.setRespawnPoint(checkpoints.respawnPoint);
+
+  respawn = new RespawnSystem(combat.death.respawnDelay, {
+    onDeath: () => hud.showDeath("Você caiu", "Voltando ao último checkpoint..."),
+    respawnPoint: () => checkpoints.respawnPoint,
+    respawn: (point) => {
+      player.respawn(point);
+      enemies.resetAliveToSpawn();
+      cam.snapBehind(player.motor.facingYaw);
+      hud.hideDeath();
+      hud.notify("De volta ao checkpoint");
+    },
+  });
+
+  const completion = new EpisodeCompletion(manifest.id, deps.save, deps.events, () =>
+    hud.announce("Episódio concluído", manifest.title, 6),
+  );
+
+  // --- marcador da mira, barras de vida flutuantes, dica de controles ---
   const marker = new TargetMarker(scene);
   disposables.add("targetMarker", () => marker.dispose());
-
+  const enemyBars = new EnemyHealthBars(hud.ui);
+  disposables.add("enemyHealthBars", () => enemyBars.dispose());
   const hint = new ControlsHint(host.root, host.canvas, CONTROLS_HINT);
   disposables.add("controlsHint", () => hint.dispose());
 
   const removers = [
-    stopOnHit,
+    stopFeedback,
     loop.add((dt) => input.update(dt), "input"),
     loop.add((dt) => hitStop.update(dt), "input"),
     loop.add((dt) => player.update(dt, cam.yaw), "update"),
     loop.add((dt) => enemies.update(dt), "update"),
     loop.add((dt) => {
+      checkpoints.update(player.feetPosition, player.isAlive);
+      respawn?.update(dt);
+      completion.update(enemies.spawnedCount, enemies.aliveCount);
+    }, "update"),
+    loop.add((dt) => {
+      shake.update(dt);
       cam.update(dt, player.lock.target);
       player.fadeForCamera(cam.distance, DEFAULT_CAMERA_CONFIG.fadeStartDistance, DEFAULT_CAMERA_CONFIG.fadeEndDistance);
       marker.update(dt, player.lock.target);
+      enemyBars.update(enemies.all);
+      hud.update(dt, player.stats);
     }, "late"),
   ];
 
@@ -104,7 +168,7 @@ export function createGameplay(deps: GameplayDeps): void {
   disposables.add("loopSystems", () => removers.forEach((remove) => remove()));
 }
 
-/** Painel de estado, hitboxes (F7) e golpe simulado no jogador (F8). */
+/** Painel de estado, hitboxes (F7), golpe simulado no jogador (F8) e matar todos os inimigos (F6). */
 function createDevTools(deps: GameplayDeps, player: Player, enemies: EnemyManager): (() => void)[] {
   const { scene, host, disposables } = deps;
 
@@ -117,6 +181,15 @@ function createDevTools(deps: GameplayDeps, player: Player, enemies: EnemyManage
   const hotkeys = new DevHotkeys(
     new Map([
       ["F7", () => (hitboxView.enabled = !hitboxView.enabled)],
+      [
+        "F6",
+        () => {
+          // Atalho para testar a conclusão do episódio sem lutar.
+          for (const e of enemies.all) {
+            e.receiveHit({ damage: 9999, directionX: 0, directionZ: 1, knockback: 0, hitStun: 0, heavy: false });
+          }
+        },
+      ],
       [
         "F8",
         () => {
@@ -150,7 +223,7 @@ function createDevTools(deps: GameplayDeps, player: Player, enemies: EnemyManage
         `alvo:    ${lock.target ? `${lock.target.id}` : "-"}`,
         `inimigos vivos: ${enemies.aliveCount} · atacando: ${enemies.coordinator.activeAttackers}`,
         ...enemies.all.map((e) => `  ${e.id}: ${e.currentHealth.toFixed(0)}/${e.stats.health} ${e.stateLabel}`),
-        "F7 hitboxes · F8 levar golpe · F9 inspector",
+        "F6 matar inimigos · F7 hitboxes · F8 levar golpe · F9 inspector",
       ]);
     }, "late"),
   ];

@@ -1,4 +1,4 @@
-import type { Scene, ShadowGenerator, Vector3 } from "@babylonjs/core";
+import type { Scene, ShadowGenerator, TransformNode, Vector3 } from "@babylonjs/core";
 import type { EnemySpawnDef, EnemyStats } from "../../shared/types";
 import type { MovementConfig } from "../character/CharacterConfig";
 import { CharacterMotor, createMoveIntent } from "../character/CharacterMotor";
@@ -40,9 +40,11 @@ export class Enemy implements CombatTarget {
   private readonly machine: EnemyStateMachine;
   private health: number;
   private flashTimer = 0;
+  private readonly spawnPoint: EnemySpawnDef["position"];
 
   constructor(spawn: EnemySpawnDef, private readonly type: EnemyTypeConfig, deps: EnemyDeps) {
     this.id = spawn.id;
+    this.spawnPoint = { ...spawn.position };
     this.stats = { ...spawn.stats };
     this.health = spawn.stats.health;
     this.hurtRadius = type.shape.radius;
@@ -92,6 +94,25 @@ export class Enemy implements CombatTarget {
 
   get currentHealth(): number {
     return this.health;
+  }
+
+  get maxHealth(): number {
+    return this.stats.health;
+  }
+
+  /** Nó acima da cabeça (barra de vida flutuante). */
+  get headAnchor(): TransformNode {
+    return this.visual.headAnchor;
+  }
+
+  /** Volta ao ponto inicial, em Idle (usado quando o jogador renasce). Mantém a vida perdida. */
+  resetToSpawn(): void {
+    if (!this.isAlive) return;
+    this.ctx.coordinator.release(this);
+    this.ctx.attackCooldown = 0;
+    this.motor.teleport(this.spawnPoint);
+    this.machine.change("Idle");
+    this.syncVisual();
   }
 
   /** Morto e já caído há tempo suficiente: pode ser removido da cena. */

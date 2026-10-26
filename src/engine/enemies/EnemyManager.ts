@@ -18,6 +18,7 @@ export interface EnemyManagerDeps {
 export class EnemyManager {
   readonly coordinator = new AttackCoordinator(DEFAULT_ATTACK_COORDINATOR_CONFIG);
   private readonly enemies: Enemy[] = [];
+  private spawned = 0;
   private readonly factory: EnemyFactory;
   private readonly damage: DamageSystem;
 
@@ -41,6 +42,17 @@ export class EnemyManager {
       this.enemies.push(enemy);
       this.damage.register(enemy);
     }
+    this.spawned += spawns.length;
+  }
+
+  /** Quantos inimigos o episódio criou no total (vivos ou não). */
+  get spawnedCount(): number {
+    return this.spawned;
+  }
+
+  /** Inimigos vivos voltam ao ponto inicial (renascimento do jogador). */
+  resetAliveToSpawn(): void {
+    for (const e of this.enemies) e.resetToSpawn();
   }
 
   get all(): readonly Enemy[] {

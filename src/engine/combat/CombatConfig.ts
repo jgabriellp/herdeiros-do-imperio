@@ -84,6 +84,19 @@ export interface HitStopConfig {
   heavy: number;
 }
 
+export interface CameraShakeConfig {
+  /** Deslocamento máximo da câmera (metros). */
+  amplitude: number;
+  duration: number;
+}
+
+export interface PlayerDeathConfig {
+  /** Tempo caído antes de renascer no checkpoint. */
+  respawnDelay: number;
+  /** Invulnerabilidade ao renascer (para não morrer de novo na hora). */
+  respawnInvulnerability: number;
+}
+
 export interface CombatConfig {
   attacks: Record<AttackId, AttackConfig>;
   comboStarter: AttackId;
@@ -93,6 +106,11 @@ export interface CombatConfig {
   playerHitReaction: PlayerHitReactionConfig;
   lock: TargetLockConfig;
   hitStop: HitStopConfig;
+  /** Tremida quando um golpe FORTE acerta. */
+  heavyHitShake: CameraShakeConfig;
+  /** Tremida quando o jogador é atingido. */
+  playerHurtShake: CameraShakeConfig;
+  death: PlayerDeathConfig;
 }
 
 const PUNCH_HITBOX: HitboxShape = { radius: 0.45, reach: 0.75, height: 1.25 };
@@ -192,5 +210,11 @@ export const DEFAULT_COMBAT_CONFIG: CombatConfig = {
   hitStop: {
     light: 0.06,
     heavy: 0.09,
+  },
+  heavyHitShake: { amplitude: 0.14, duration: 0.28 },
+  playerHurtShake: { amplitude: 0.09, duration: 0.2 },
+  death: {
+    respawnDelay: 2.5,
+    respawnInvulnerability: 2,
   },
 };
