@@ -36,8 +36,8 @@ export function createLevelLighting(scene: Scene, data: ProceduralLevelData["lig
   const shadows = new ShadowGenerator(SHADOW_MAP_SIZE, sun);
   shadows.usePercentageCloserFiltering = true;
   shadows.filteringQuality = ShadowGenerator.QUALITY_MEDIUM;
-  shadows.bias = 0.0005;
-  shadows.normalBias = 0.02;
+  shadows.bias = 0.002;
+  shadows.normalBias = 0.04;
 
   return { sun, ambient, shadows };
 }

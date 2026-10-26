@@ -4,14 +4,18 @@ import {
   PhysicsAggregate,
   PhysicsShapeType,
   StandardMaterial,
+  Vector3,
   type Mesh,
   type Scene,
 } from "@babylonjs/core";
 import type { ObstacleDef, ProceduralLevelData } from "../../shared/types";
+import { CollisionLayers } from "../core/CollisionLayers";
 import { createLevelLighting, type LevelLighting } from "./LevelLighting";
 import { createSkyDome } from "./SkyDome";
 
 const DEFAULT_OBSTACLE_COLOR = "#8a7f72";
+/** Espessura do colisor do chão: o topo fica em y=0 e nada "vaza" por baixo. */
+const GROUND_COLLIDER_THICKNESS = 1;
 
 export interface BuiltLevel {
   lighting: LevelLighting;
@@ -44,7 +48,18 @@ export class ProceduralLevelBuilder {
     const mesh = MeshBuilder.CreateGround("ground", { width: ground.width, height: ground.depth }, this.scene);
     mesh.material = this.material(ground.color);
     mesh.receiveShadows = true;
-    new PhysicsAggregate(mesh, PhysicsShapeType.BOX, { mass: 0, friction: 0.8 }, this.scene);
+    const body = new PhysicsAggregate(
+      mesh,
+      PhysicsShapeType.BOX,
+      {
+        mass: 0,
+        friction: 0.8,
+        extents: new Vector3(ground.width, GROUND_COLLIDER_THICKNESS, ground.depth),
+        center: new Vector3(0, -GROUND_COLLIDER_THICKNESS / 2, 0),
+      },
+      this.scene,
+    );
+    body.shape.filterMembershipMask = CollisionLayers.WORLD;
   }
 
   private buildObstacle(def: ObstacleDef, index: number): Mesh {
@@ -66,7 +81,9 @@ export class ProceduralLevelBuilder {
     mesh.receiveShadows = true;
 
     // mass 0 = estático (parede, pilar); > 0 = dinâmico (caixa que cai e pode ser empurrada).
-    new PhysicsAggregate(mesh, shape, { mass: def.mass ?? 0, friction: 0.6, restitution: 0.1 }, this.scene);
+    const mass = def.mass ?? 0;
+    const body = new PhysicsAggregate(mesh, shape, { mass, friction: 0.6, restitution: 0.1 }, this.scene);
+    body.shape.filterMembershipMask = mass > 0 ? CollisionLayers.PROP : CollisionLayers.WORLD;
     return mesh;
   }
 

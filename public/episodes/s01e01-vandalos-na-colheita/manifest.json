@@ -7,8 +7,8 @@
   "description": "A vida pacata na fazenda é interrompida por saqueadores na época da colheita.",
   "version": "0.0.1",
   "requires": [],
-  "spawnPoint": { "x": 0, "y": 1, "z": 0 },
+  "spawnPoint": { "x": 0, "y": 0, "z": 0 },
   "checkpoints": [
-    { "id": "start", "position": { "x": 0, "y": 1, "z": 0 } }
+    { "id": "start", "position": { "x": 0, "y": 0, "z": 0 } }
   ]
 }

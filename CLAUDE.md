@@ -38,13 +38,17 @@ construtor genérico a partir do `level.json`; não existe "gerador do sandbox".
 ```
 src/main.ts              lançador local (papel da plataforma futura): ?ep= → catálogo → GameConfig → startGame
 src/engine/startGame.ts  ponto de entrada único do motor
-src/engine/core/         Game (ciclo de vida), GameEvents, GameLoop, CanvasHost, Physics,
-                         DisposeStack, GameError, DevInspector (F9), DevOrbitCamera (provisória)
+src/engine/core/         Game (ciclo de vida), GameEvents, GameLoop (fases input→update→late),
+                         CanvasHost, Physics, CollisionLayers, DisposeStack, GameError,
+                         DevInspector (F9), mathUtils
+src/engine/core/input/   InputManager, InputSource (interface), KeyboardMouseSource, InputBindings
 src/engine/episodes/     EpisodeLoader (único que busca arquivos de episódio) + validadores
 src/engine/world/        montagem de fase: ProceduralLevelBuilder, SkyDome, LevelLighting, DebugMarkers
 src/engine/save/         SaveManager, LocalSaveProvider, migrateSave, defaultSave
-src/engine/ui/           MessageOverlay (DOM); HUD (Babylon GUI) virá na Tarefa 5
-src/engine/{player,combat,enemies,vfx}/  vazias até as Tarefas 2–5
+src/engine/player/       Player (montagem), PlayerMotor (física), PlayerController (input→intenção),
+                         PlayerVisual (interface) + CapsuleVisual, ThirdPersonCamera, configs
+src/engine/ui/           MessageOverlay, ControlsHint (DOM); HUD (Babylon GUI) virá na Tarefa 5
+src/engine/{combat,enemies,vfx}/  vazias até as Tarefas 3–5
 src/shared/types/        tipos puros (sem Babylon), reaproveitáveis pela plataforma:
                          GameConfig/GameHandle, eventos, save, manifesto/level/encounters
 public/episodes/catalog.json   id → pasta; lido SÓ pelo main.ts
@@ -94,9 +98,38 @@ public/episodes/catalog.json   id → pasta; lido SÓ pelo main.ts
 - Babylon importado pelo barrel `@babylonjs/core` (bundle principal ~5 MB). Otimizar com
   imports profundos é possível mais tarde, se necessário.
 
+### Decisões registradas (Tarefa 2)
+- **Posições de spawn, checkpoint e inimigos = posição dos PÉS** (y=0 = no chão).
+  Convenção compatível com modelos .glb, cuja origem fica nos pés.
+- **Física do personagem**: `PhysicsCharacterController` do Havok (degraus até 0,35 m,
+  rampas até 50°, empurra caixas). `keepContactTolerance` reduzido para 0,02: com o padrão
+  (0,1) o personagem flutuava até 10 cm após uma queda.
+- **Separação em camadas**: `PlayerMotor` (corpo: aceleração, gravidade, pulo com coyote time
+  e buffer, rotação) recebe um `MoveIntent` e não lê input. `PlayerController` traduz input
+  em intenção. Assim a máquina de estados do combate (Tarefa 3) e a IA comandam o mesmo motor.
+- **Visual isolado**: `PlayerVisual` (origem nos pés, +Z = frente, `update(estado)` para futuras
+  animações, `setVisibility`). Trocar a cápsula por .glb = nova classe + uma linha em `Player.ts`.
+- **Integração vertical pela média da velocidade do quadro**: a altura do pulo é a mesma em
+  qualquer FPS (medido: 1,40 m para `jumpHeight` 1,4 a ~20 e ~30 FPS).
+- **Input em ações**: o jogo consulta `isDown/wasPressed("jump")`, `move`, `look` (já em radianos),
+  `zoom`. Teclado ouvido no **canvas** (não na janela) para não capturar digitação da página
+  da plataforma. Gamepad = nova classe `GamepadSource implements InputSource`, registrada com
+  `input.addSource(...)` no `Game`; nada mais muda.
+- **Câmera**: raycast Havok contra a camada `WORLD` (caixas dinâmicas são `PROP` e não empurram
+  a câmera; jogador é `PLAYER`). Aproxima na hora quando bloqueada, volta suave. O personagem
+  fica transparente quando a câmera encosta nele.
+- **Chão físico**: caixa de 1 m de espessura com topo em y=0 (um plano de espessura zero
+  deixava o personagem alguns centímetros acima do chão).
+- **Queda infinita**: abaixo de `fallRespawnY` (-30) o jogador volta ao spawn (provisório até a
+  morte/checkpoint da Tarefa 5).
+- Atenção para a Tarefa 3: **Ctrl+W fecha a aba** do navegador e não pode ser bloqueado; a esquiva
+  em Ctrl precisa considerar isso.
+
 ## Convenções
 - Classes pequenas, responsabilidade única. Comentários em português nas partes não óbvias.
-- Toda lógica de movimento usa deltaTime em segundos (`GameLoop.add(dt => ...)`).
+- Toda lógica de movimento usa deltaTime em segundos (`GameLoop.add(dt => ...)`). Suavizações
+  usam `damp(nitidez, dt)` (exponencial, independente de FPS).
+- Valores de tuning ficam em arquivos `*Config.ts` (ex.: `PlayerConfig`, `CameraConfig`).
 - Valores de jogo (tempos, dano, velocidades) em configs/dados, nunca hardcoded na lógica.
 - Recursos com ciclo de vida se registram no `DisposeStack` do `Game`.
 - Erros fatais: lançar `GameError(code, mensagem)`; o `Game` converte em overlay + evento.
@@ -109,8 +142,10 @@ public/episodes/catalog.json   id → pasta; lido SÓ pelo main.ts
 - [x] **Tarefa 1 — Fundação**: Vite + TS, startGame/GameConfig/GameEvents/dispose, Havok,
   EpisodeLoader + validação, fase procedural do sandbox (chão, sol com sombras, ambiente,
   céu, muros, pilares, caixas dinâmicas), Inspector F9 (dev), SaveManager + LocalSaveProvider.
-  Câmera atual é a `DevOrbitCamera` provisória (arrastar para girar, roda para zoom).
-- [ ] Tarefa 2 — Personagem e câmera
+- [x] **Tarefa 2 — Personagem e câmera**: cápsula com indicador de frente (visual isolado),
+  WASD relativo à câmera com aceleração/desaceleração, Shift corre, Espaço pula (coyote time +
+  buffer), rotação suave, câmera 3ª pessoa com pointer lock, suavização, limites verticais,
+  zoom na roda e colisão com o cenário, InputManager com fontes plugáveis.
 - [ ] Tarefa 3 — Combate básico
 - [ ] Tarefa 4 — Inimigos a partir de dados
 - [ ] Tarefa 5 — Feedback, HUD e checkpoint

@@ -7,13 +7,13 @@ export function createDebugMarkers(scene: Scene, manifest: EpisodeManifest): voi
   const cpMat = translucent(scene, "dbg_checkpoint", new Color3(0.3, 0.6, 1));
 
   const spawn = MeshBuilder.CreateTorus("dbg_spawn", { diameter: 1.4, thickness: 0.08 }, scene);
-  spawn.position.set(manifest.spawnPoint.x, manifest.spawnPoint.y - 0.95, manifest.spawnPoint.z);
+  spawn.position.set(manifest.spawnPoint.x, manifest.spawnPoint.y + 0.05, manifest.spawnPoint.z);
   spawn.material = spawnMat;
   spawn.isPickable = false;
 
   for (const cp of manifest.checkpoints) {
-    const m = MeshBuilder.CreateCylinder(`dbg_cp_${cp.id}`, { diameter: 0.5, height: 2 }, scene);
-    m.position.set(cp.position.x, cp.position.y, cp.position.z);
+    const m = MeshBuilder.CreateCylinder(`dbg_cp_${cp.id}`, { diameter: 1.1, height: 0.04 }, scene);
+    m.position.set(cp.position.x, cp.position.y + 0.02, cp.position.z);
     m.material = cpMat;
     m.isPickable = false;
   }

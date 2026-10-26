@@ -1,21 +1,32 @@
 import { Engine, Scene } from "@babylonjs/core";
-import type { GameConfig } from "../../shared/types";
+import type { GameConfig, Vec3Data } from "../../shared/types";
 import { EpisodeLoader, type LoadedEpisode } from "../episodes/EpisodeLoader";
+import { DEFAULT_CAMERA_CONFIG } from "../player/CameraConfig";
+import { Player } from "../player/Player";
+import { ThirdPersonCamera } from "../player/ThirdPersonCamera";
 import { SaveManager } from "../save/SaveManager";
+import { ControlsHint } from "../ui/ControlsHint";
 import { MessageOverlay } from "../ui/MessageOverlay";
 import { createDebugMarkers } from "../world/DebugMarkers";
-import { ProceduralLevelBuilder } from "../world/ProceduralLevelBuilder";
+import { ProceduralLevelBuilder, type BuiltLevel } from "../world/ProceduralLevelBuilder";
 import { CanvasHost } from "./CanvasHost";
 import { DevInspector } from "./DevInspector";
-import { createDevOrbitCamera } from "./DevOrbitCamera";
 import { DisposeStack } from "./DisposeStack";
 import { GameError } from "./GameError";
 import type { GameEvents } from "./GameEvents";
 import { GameLoop } from "./GameLoop";
+import { DEFAULT_INPUT_SETTINGS, DEFAULT_KEYBOARD_MOUSE_BINDINGS } from "./input/InputBindings";
+import { InputManager } from "./input/InputManager";
+import { KeyboardMouseSource } from "./input/KeyboardMouseSource";
 import { enablePhysics } from "./Physics";
 
 /** Sinaliza que o boot foi interrompido por um dispose(); não é erro. */
 class BootCancelled extends Error {}
+
+const CONTROLS_HINT = [
+  "Clique para jogar",
+  "WASD mover · Shift correr · Espaço pular · Mouse câmera · Roda zoom · Esc soltar o mouse",
+];
 
 /**
  * Uma sessão de jogo de um episódio: cria engine, física, cena e sistemas,
@@ -55,7 +66,6 @@ export class Game {
 
   private async boot(): Promise<void> {
     const { config, events } = this;
-    const isDev = config.mode === "dev";
 
     const host = new CanvasHost(config.container);
     this.disposables.add("canvas", () => host.dispose());
@@ -100,14 +110,14 @@ export class Game {
       );
     }
 
-    this.buildWorld(scene, host.canvas, episode);
+    const level = this.buildWorld(scene, episode);
+    const spawn = this.restoreProgress(save, episode);
+    this.createPlayerAndCamera(scene, host, loop, level, spawn);
 
-    if (isDev) {
+    if (config.mode === "dev") {
       const inspector = new DevInspector(scene);
       this.disposables.add("devInspector", () => inspector.dispose());
     }
-
-    this.restoreProgress(save, episode);
 
     loop.start();
     await scene.whenReadyAsync();
@@ -117,28 +127,65 @@ export class Game {
     events.emit("episodeLoaded", { episodeId: manifest.id, title: manifest.title, version: manifest.version });
   }
 
-  private buildWorld(scene: Scene, canvas: HTMLCanvasElement, episode: LoadedEpisode): void {
+  private buildWorld(scene: Scene, episode: LoadedEpisode): BuiltLevel | null {
     const { manifest, level } = episode;
-    if (level?.type === "procedural") new ProceduralLevelBuilder(scene).build(level.data);
-
-    createDevOrbitCamera(scene, canvas, manifest.spawnPoint);
+    const built = level?.type === "procedural" ? new ProceduralLevelBuilder(scene).build(level.data) : null;
 
     if (this.config.mode === "dev") {
       createDebugMarkers(scene, manifest);
       // Inimigos serão criados na Tarefa 4; por ora só confirmamos a leitura.
       console.info(`[Game] encounters: ${episode.encounters.enemies.length} inimigo(s) validado(s).`);
     }
+    return built;
   }
 
-  /** Registra no save o episódio atual, mantendo o checkpoint se ele ainda existir. */
-  private restoreProgress(save: SaveManager, episode: LoadedEpisode): void {
+  private createPlayerAndCamera(
+    scene: Scene,
+    host: CanvasHost,
+    loop: GameLoop,
+    level: BuiltLevel | null,
+    spawn: Vec3Data,
+  ): void {
+    const input = new InputManager();
+    input.addSource(new KeyboardMouseSource(host.canvas, DEFAULT_KEYBOARD_MOUSE_BINDINGS, DEFAULT_INPUT_SETTINGS));
+    this.disposables.add("input", () => input.dispose());
+
+    const player = new Player(scene, input, spawn, level?.lighting.shadows ?? null);
+    this.disposables.add("player", () => player.dispose());
+
+    const camera = new ThirdPersonCamera(scene, player.motor, input, DEFAULT_CAMERA_CONFIG, player.motor.facingYaw);
+    this.disposables.add("camera", () => camera.dispose());
+
+    const hint = new ControlsHint(host.root, host.canvas, CONTROLS_HINT);
+    this.disposables.add("controlsHint", () => hint.dispose());
+
+    const removers = [
+      loop.add((dt) => input.update(dt), "input"),
+      loop.add((dt) => player.controller.update(dt, camera.yaw), "update"),
+      loop.add((dt) => {
+        camera.update(dt);
+        player.fadeForCamera(camera.distance, DEFAULT_CAMERA_CONFIG.fadeStartDistance, DEFAULT_CAMERA_CONFIG.fadeEndDistance);
+      }, "late"),
+    ];
+    this.disposables.add("loopSystems", () => removers.forEach((remove) => remove()));
+  }
+
+  /**
+   * Registra no save o episódio atual e decide onde o jogador nasce:
+   * no checkpoint salvo (se ainda existir neste episódio) ou no spawnPoint.
+   */
+  private restoreProgress(save: SaveManager, episode: LoadedEpisode): Vec3Data {
     const { manifest } = episode;
     const saved = save.current;
-    const keepCheckpoint =
-      saved.currentEpisodeId === manifest.id &&
-      manifest.checkpoints.some((cp) => cp.id === saved.currentCheckpointId);
-    const checkpointId = keepCheckpoint ? saved.currentCheckpointId! : manifest.checkpoints[0]!.id;
-    if (!keepCheckpoint) save.setCurrent(manifest.id, checkpointId);
+    const savedCheckpoint =
+      saved.currentEpisodeId === manifest.id
+        ? manifest.checkpoints.find((cp) => cp.id === saved.currentCheckpointId)
+        : undefined;
+
+    if (savedCheckpoint) return savedCheckpoint.position;
+
+    save.setCurrent(manifest.id, manifest.checkpoints[0]!.id);
+    return manifest.spawnPoint;
   }
 
   private throwIfDisposed(): void {

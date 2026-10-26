@@ -16,6 +16,7 @@ export interface LevelRef {
 
 export interface CheckpointDef {
   id: string;
+  /** Posição dos pés do jogador. */
   position: Vec3Data;
 }
 
@@ -35,6 +36,7 @@ export interface EpisodeManifest {
    * quem inicia o jogo (main.ts / plataforma) decide se o episódio pode abrir.
    */
   requires?: string[];
+  /** Posição dos pés do jogador ao iniciar o episódio. */
   spawnPoint: Vec3Data;
   /** Ausente = episódio ainda sem conteúdo jogável. */
   level?: LevelRef;
@@ -93,6 +95,7 @@ export interface EnemySpawnDef {
   id: string;
   /** Tipo de inimigo conhecido pelo motor (ex.: "vandalo"). */
   type: string;
+  /** Posição dos pés. */
   position: Vec3Data;
   stats: EnemyStats;
 }

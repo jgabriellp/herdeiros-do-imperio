@@ -16,13 +16,18 @@ Escolha o episódio pela URL: `http://localhost:5173/?ep=s00e00` (padrão: `s00e
 
 ## Controles (estado atual)
 
-| Tecla / ação          | Efeito                                   |
-| --------------------- | ---------------------------------------- |
-| Arrastar com o mouse  | Girar a câmera (câmera de teste)         |
-| Roda do mouse         | Zoom                                     |
-| F9                    | Abrir/fechar o Inspector (só em dev)     |
+| Tecla / ação          | Efeito                                         |
+| --------------------- | ---------------------------------------------- |
+| Clique no jogo        | Capturar o mouse (pointer lock)                |
+| Esc                   | Soltar o mouse                                 |
+| W A S D / setas       | Andar (relativo à câmera)                      |
+| Shift                 | Correr                                         |
+| Espaço                | Pular                                          |
+| Mouse                 | Girar a câmera                                 |
+| Roda do mouse         | Aproximar/afastar a câmera                     |
+| F9                    | Abrir/fechar o Inspector (só em `npm run dev`) |
 
-Os controles do personagem e do combate chegam nas próximas tarefas.
+Os controles de combate chegam nas próximas tarefas.
 
 ## Estrutura de pastas
 
@@ -49,13 +54,14 @@ Mais detalhes de arquitetura em [CLAUDE.md](CLAUDE.md).
      "description": "Opcional.",
      "version": "0.1.0",
      "requires": ["s01e01"],
-     "spawnPoint": { "x": 0, "y": 1, "z": 0 },
+     "spawnPoint": { "x": 0, "y": 0, "z": 0 },
      "level": { "type": "procedural", "file": "level.json" },
      "encounters": "encounters.json",
-     "checkpoints": [{ "id": "start", "position": { "x": 0, "y": 1, "z": 0 } }]
+     "checkpoints": [{ "id": "start", "position": { "x": 0, "y": 0, "z": 0 } }]
    }
    ```
    - `id` deve ser `sTTeEE` e bater com `season`/`episode`.
+   - `spawnPoint` e `checkpoints[].position` são a posição dos **pés** do jogador (`y: 0` = no chão).
    - `level` e `encounters` são opcionais. Sem `level`, o episódio aparece como "em produção".
    - `requires` é apenas informativo para quem abre o jogo; o motor não bloqueia.
    - Caminhos de arquivo são relativos à pasta do pacote.
@@ -63,7 +69,7 @@ Mais detalhes de arquitetura em [CLAUDE.md](CLAUDE.md).
    chão (`ground`), cores do céu (`sky`), sol e luz ambiente (`lighting`) e `obstacles`.
    Cada obstáculo é `box` (com `size`) ou `cylinder` (com `diameter` e `height`).
    `position` é o **centro** do objeto, `mass > 0` o torna dinâmico, e cores são `"#rrggbb"`.
-4. Crie o `encounters.json` com a lista `enemies` (`id`, `type`, `position`,
+4. Crie o `encounters.json` com a lista `enemies` (`id`, `type`, `position` dos pés,
    `stats: { health, damage, speed }`).
 5. Registre o episódio em `public/episodes/catalog.json`:
    `{ "id": "s01e02", "folder": "s01e02-nome-curto" }`.
