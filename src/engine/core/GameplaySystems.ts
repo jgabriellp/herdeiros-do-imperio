@@ -3,7 +3,6 @@ import type { EncountersData, PlayerAttributes, Vec3Data } from "../../shared/ty
 import { DEFAULT_COMBAT_CONFIG } from "../combat/CombatConfig";
 import { DamageSystem } from "../combat/DamageSystem";
 import { HitboxDebugView } from "../combat/HitboxDebugView";
-import { EnemyFactory } from "../enemies/EnemyFactory";
 import { EnemyManager } from "../enemies/EnemyManager";
 import { DEFAULT_CAMERA_CONFIG } from "../player/CameraConfig";
 import { Player } from "../player/Player";
@@ -11,6 +10,7 @@ import { ThirdPersonCamera } from "../player/ThirdPersonCamera";
 import { ControlsHint } from "../ui/ControlsHint";
 import { DevStatsPanel } from "../ui/DevStatsPanel";
 import { TargetMarker } from "../ui/TargetMarker";
+import { HitStop } from "../vfx/HitStop";
 import type { CanvasHost } from "./CanvasHost";
 import { DevHotkeys } from "./DevHotkeys";
 import type { DisposeStack } from "./DisposeStack";
@@ -52,10 +52,6 @@ export function createGameplay(deps: GameplayDeps): void {
   const damage = new DamageSystem();
   disposables.add("damageSystem", () => damage.dispose());
 
-  const enemies = new EnemyManager(new EnemyFactory(scene, deps.shadows), damage);
-  disposables.add("enemies", () => enemies.dispose());
-  enemies.spawnAll(deps.encounters.enemies);
-
   // A câmera é criada depois do jogador, mas o jogador pode pedir recentralização a qualquer momento.
   let camera: ThirdPersonCamera | null = null;
   const player = new Player({
@@ -70,6 +66,17 @@ export function createGameplay(deps: GameplayDeps): void {
   });
   disposables.add("player", () => player.dispose());
 
+  // Inimigos depois do jogador: a IA precisa saber quem perseguir.
+  const enemies = new EnemyManager({ scene, shadows: deps.shadows, damage, player });
+  disposables.add("enemies", () => enemies.dispose());
+  enemies.spawnAll(deps.encounters.enemies);
+
+  // Hit stop: todo acerto (do jogador ou nele) congela a lógica por um instante.
+  const hitStop = new HitStop(scene);
+  disposables.add("hitStop", () => hitStop.dispose());
+  loop.setFreezeSource(() => hitStop.frozen);
+  const stopOnHit = damage.onHit((e) => hitStop.trigger(e.hit.heavy ? combat.hitStop.heavy : combat.hitStop.light));
+
   const cam = new ThirdPersonCamera(scene, player.motor, input, DEFAULT_CAMERA_CONFIG, player.motor.facingYaw);
   camera = cam;
   disposables.add("camera", () => cam.dispose());
@@ -81,7 +88,9 @@ export function createGameplay(deps: GameplayDeps): void {
   disposables.add("controlsHint", () => hint.dispose());
 
   const removers = [
+    stopOnHit,
     loop.add((dt) => input.update(dt), "input"),
+    loop.add((dt) => hitStop.update(dt), "input"),
     loop.add((dt) => player.update(dt, cam.yaw), "update"),
     loop.add((dt) => enemies.update(dt), "update"),
     loop.add((dt) => {
@@ -139,8 +148,8 @@ function createDevTools(deps: GameplayDeps, player: Player, enemies: EnemyManage
         `stamina: ${stats.stamina.toFixed(0)} / ${stats.maxStamina}`,
         `invuln.: ${player.isInvulnerable ? "sim" : "não"}`,
         `alvo:    ${lock.target ? `${lock.target.id}` : "-"}`,
-        `inimigos vivos: ${enemies.aliveCount}`,
-        ...enemies.all.map((e) => `  ${e.id}: ${e.currentHealth.toFixed(0)}/${e.stats.health} ${e.state}`),
+        `inimigos vivos: ${enemies.aliveCount} · atacando: ${enemies.coordinator.activeAttackers}`,
+        ...enemies.all.map((e) => `  ${e.id}: ${e.currentHealth.toFixed(0)}/${e.stats.health} ${e.stateLabel}`),
         "F7 hitboxes · F8 levar golpe · F9 inspector",
       ]);
     }, "late"),

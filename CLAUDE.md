@@ -52,10 +52,12 @@ src/engine/player/       Player (montagem + alvo de combate), PlayerController (
                          PlayerStats, PlayerVisual (interface) + CapsuleVisual, ThirdPersonCamera, configs
 src/engine/combat/       CombatConfig (TODOS os números do combate), CombatTypes (CombatTarget, HitInfo),
                          Hitbox, DamageSystem, TargetLock, HitboxDebugView
-src/engine/enemies/      Enemy (passivo por ora), EnemyVisual, EnemyFactory, EnemyManager, EnemyConfig (tipos)
+src/engine/enemies/      Enemy, EnemyStateMachine + states/ (Idle, Chase, Attack, HitStun, Dead),
+                         AttackCoordinator (fichas de ataque), EnemyVisual, EnemyFactory, EnemyManager,
+                         EnemyConfig (tipos, IA, golpe, regras do grupo)
 src/engine/ui/           MessageOverlay, ControlsHint, DevStatsPanel (DOM), TargetMarker (3D);
                          HUD (Babylon GUI) virá na Tarefa 5
-src/engine/vfx/          vazia até a Tarefa 5
+src/engine/vfx/          HitStop; partículas e tremida de câmera na Tarefa 5
 src/shared/types/        tipos puros (sem Babylon), reaproveitáveis pela plataforma:
                          GameConfig/GameHandle, eventos, save, manifesto/level/encounters
 public/episodes/catalog.json   id → pasta; lido SÓ pelo main.ts
@@ -151,12 +153,31 @@ public/episodes/catalog.json   id → pasta; lido SÓ pelo main.ts
   A trava continua ao levar golpe.
 - **Esquiva**: livre = rola na direção do input (ou para frente); travada = passo lateral/recuo
   encarando o alvo. I-frames visíveis (personagem semitransparente).
-- **Inimigos já existem (passivos)**: criados de `encounters.json` via `EnemyFactory` (tipo
-  desconhecido = erro claro `INVALID_EPISODE`). Recebem dano, empurrão, piscam e morrem (caem, somem
-  e saem da cena). IA (Chase/Attack, aviso, 1–2 atacando por vez) e hit stop: Tarefa 4.
+- Inimigos são criados de `encounters.json` via `EnemyFactory` (tipo desconhecido = erro claro
+  `INVALID_EPISODE`).
 - O jogador já é um `CombatTarget` (facção "player"); morte/renascimento: Tarefa 5.
 - **Ferramentas de dev** (só `mode: "dev"`): painel de estado (canto superior esquerdo),
   F7 mostra hitboxes, F8 simula um golpe no jogador.
+
+### Decisões registradas (Tarefa 4)
+- **IA por máquina de estados** (mesmo padrão do jogador): Idle → Chase → Attack, HitStun, Dead.
+  Chase tem dois modos: "avançando" (tem a vez de atacar) e "ronda" (anda de lado em volta do
+  jogador a ~4,5 m esperando a vez). Não criei um estado extra para a ronda.
+- **AttackCoordinator** ("fichas"): no máximo 2 com a vez ao mesmo tempo e 0,8 s entre o início de
+  dois ataques. A ficha é devolvida ao terminar o golpe, ao ser atingido, ao morrer, ou se não
+  alcançar o jogador em 4 s. Depois de atacar, espera 1,2–2,4 s (aleatório) para pedir de novo.
+- **Aviso do ataque**: preparação de 0,6 s com a clava erguida brilhando em amarelo e o corpo
+  pulsando em laranja (fica aceso nos últimos 20%). Na preparação o inimigo ainda gira devagar
+  para o jogador: esquivar para o lado no tempo certo funciona. Golpe do jogador interrompe a
+  preparação (HitStun).
+- **Alerta de grupo**: inimigo parado entra na luta se um aliado a até 12 m já estiver lutando.
+- **Separação**: inimigos se afastam uns dos outros (raio 1,6 m) para não se amontoarem.
+- **Hit stop**: todo acerto (do jogador ou no jogador) congela a fase "update" do GameLoop e a
+  física (`scene.physicsEnabled = false`) por 60 ms (90 ms em golpes fortes). Input e câmera
+  continuam em tempo real, então nenhum toque se perde durante a pausa.
+- Dano do golpe do inimigo vem de `stats.damage` do encounters.json; tempos/alcance/empurrão vêm
+  do tipo em `EnemyConfig`.
+- O jogador ainda não morre (vida chega a 0 e os inimigos param): Tarefa 5.
 
 ## Convenções
 - Classes pequenas, responsabilidade única. Comentários em português nas partes não óbvias.
@@ -183,7 +204,9 @@ public/episodes/catalog.json   id → pasta; lido SÓ pelo main.ts
   empurrão, fases de golpe em CombatConfig, um acerto por alvo por golpe, esquiva (C) com
   i-frames e stamina, regeneração de stamina, mira travada (Q / botão do meio) com strafe,
   enquadramento e marcador; inimigos passivos de `encounters.json` como alvos.
-- [ ] Tarefa 4 — Inimigos a partir de dados
+- [x] **Tarefa 4 — Inimigos a partir de dados**: IA com Idle/Chase/Attack/HitStun/Dead, aviso
+  visual antes do golpe, no máximo 2 atacando por vez (os outros rondam), alerta de grupo,
+  knockback + piscar vermelho + hit stop de ~60 ms, 3 inimigos com atributos diferentes.
 - [ ] Tarefa 5 — Feedback, HUD e checkpoint
 
 ## Próximas fases (não implementar sem pedido; apenas não bloquear)

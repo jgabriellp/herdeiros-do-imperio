@@ -51,6 +51,7 @@ export class PlayerStateMachine implements PlayerStateChanger {
     intent.directionX = intent.directionZ = intent.maxSpeed = 0;
     intent.faceYaw = null;
     intent.forcedVelocity = null;
+    intent.turnSharpness = null;
     const next = this.states[name] as PlayerState<K>;
     this._current = next as PlayerState;
     next.enter(params[0] as PlayerStateParams[K]);

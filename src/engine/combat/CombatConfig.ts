@@ -77,6 +77,13 @@ export interface TargetLockConfig {
   lockedMoveSpeed: number;
 }
 
+export interface HitStopConfig {
+  /** Pausa ao acertar um golpe normal (segundos). */
+  light: number;
+  /** Pausa ao acertar um golpe forte (finalizador, chute). */
+  heavy: number;
+}
+
 export interface CombatConfig {
   attacks: Record<AttackId, AttackConfig>;
   comboStarter: AttackId;
@@ -85,6 +92,7 @@ export interface CombatConfig {
   stamina: StaminaConfig;
   playerHitReaction: PlayerHitReactionConfig;
   lock: TargetLockConfig;
+  hitStop: HitStopConfig;
 }
 
 const PUNCH_HITBOX: HitboxShape = { radius: 0.45, reach: 0.75, height: 1.25 };
@@ -180,5 +188,9 @@ export const DEFAULT_COMBAT_CONFIG: CombatConfig = {
     anglePreference: 0.5,
     breakDistance: 22,
     lockedMoveSpeed: 4.5,
+  },
+  hitStop: {
+    light: 0.06,
+    heavy: 0.09,
   },
 };

@@ -23,10 +23,12 @@ export interface MoveIntent {
    * null = movimento normal a partir de direction/maxSpeed.
    */
   forcedVelocity: { x: number; z: number } | null;
+  /** Nitidez do giro neste quadro; null = a do MovementConfig. */
+  turnSharpness: number | null;
 }
 
 export function createMoveIntent(): MoveIntent {
-  return { directionX: 0, directionZ: 0, maxSpeed: 0, faceYaw: null, forcedVelocity: null };
+  return { directionX: 0, directionZ: 0, maxSpeed: 0, faceYaw: null, forcedVelocity: null, turnSharpness: null };
 }
 
 const DOWN = new Vector3(0, -1, 0);
@@ -211,7 +213,8 @@ export class CharacterMotor {
       if (Math.hypot(intent.directionX, intent.directionZ) < MIN_TURN_INPUT) return;
       targetYaw = yawFromDirection(intent.directionX, intent.directionZ);
     }
-    this._facingYaw += shortestAngle(this._facingYaw, targetYaw) * damp(this.config.turnSharpness, dt);
+    const sharpness = intent.turnSharpness ?? this.config.turnSharpness;
+    this._facingYaw += shortestAngle(this._facingYaw, targetYaw) * damp(sharpness, dt);
   }
 
   private applyVelocity(support: CharacterSurfaceInfo): void {

@@ -1,6 +1,13 @@
-import type { AttackConfig } from "./CombatConfig";
 import type { CombatTarget, Faction, HitInfo, HitOutcome } from "./CombatTypes";
 import type { Hitbox } from "./Hitbox";
+
+/** O que um golpe precisa informar para ser resolvido (golpes do jogador e de inimigos). */
+export interface HitSpec {
+  damage: number;
+  knockback: number;
+  targetHitStun: number;
+  heavy: boolean;
+}
 
 export interface HitEvent {
   target: CombatTarget;
@@ -38,7 +45,7 @@ export class DamageSystem {
   }
 
   /** Aplica o golpe a todos os alvos inimigos tocados pela hitbox (uma vez cada). */
-  resolve(hitbox: Hitbox, attackerFaction: Faction, attackerX: number, attackerZ: number, attack: AttackConfig): HitEvent[] {
+  resolve(hitbox: Hitbox, attackerFaction: Faction, attackerX: number, attackerZ: number, attack: HitSpec): HitEvent[] {
     const events: HitEvent[] = [];
     for (const target of this.targets) {
       if (target.faction === attackerFaction || !target.isAlive) continue;

@@ -82,6 +82,7 @@ export abstract class PlayerState<K extends PlayerStateName = PlayerStateName> {
     i.directionX = i.directionZ = i.maxSpeed = 0;
     i.faceYaw = null;
     i.forcedVelocity = null;
+    i.turnSharpness = null;
   }
 
   /** Movimento livre conduzido pelo input (andar/correr/strafe). */
