@@ -1,5 +1,6 @@
 import type { AbstractMesh, TransformNode } from "@babylonjs/core";
 import type { AttackKind } from "../combat/CombatConfig";
+import type { WeaponMode } from "./PlayerEquipment";
 
 export type AttackPhase = "windup" | "active" | "recovery";
 
@@ -24,6 +25,12 @@ export type VisualAction =
     }
   | { kind: "hitStun"; progress: number }
   | {
+      kind: "aim";
+      /** Tensão da corda 0..1. */
+      charge: number;
+      raised: boolean;
+    }
+  | {
       kind: "block";
       /** 0..1: força do tranco de um golpe recém-bloqueado (decai até 0). */
       impact: number;
@@ -39,8 +46,8 @@ export interface PlayerVisualState {
   grounded: boolean;
   verticalSpeed: number;
   action: VisualAction | null;
-  /** O que está na mão; `drawn` = empunhado (senão guardado nas costas). */
-  gear: { sword: string | null; shield: string | null; drawn: boolean };
+  /** Itens equipados e o que está empunhado (o resto fica guardado nas costas). */
+  gear: { sword: string | null; shield: string | null; bow: string | null; mode: WeaponMode };
 }
 
 /**

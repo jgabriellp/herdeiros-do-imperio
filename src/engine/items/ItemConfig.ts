@@ -27,7 +27,18 @@ export interface ShieldItem {
   color: string;
 }
 
-export type ItemDef = SwordItem | ShieldItem;
+export interface BowItem {
+  kind: "bow";
+  slot: "ranged";
+  name: string;
+  /** Multiplica dano e velocidade das flechas do CombatConfig.bow. */
+  powerMultiplier: number;
+  /** Visual provisório. */
+  height: number;
+  color: string;
+}
+
+export type ItemDef = SwordItem | ShieldItem | BowItem;
 
 export const ITEMS: Record<string, ItemDef> = {
   espada_simples: {
@@ -37,6 +48,14 @@ export const ITEMS: Record<string, ItemDef> = {
     damageMultiplier: 1,
     bladeLength: 0.9,
     bladeColor: "#c9ced6",
+  },
+  arco_curto: {
+    kind: "bow",
+    slot: "ranged",
+    name: "Arco Curto",
+    powerMultiplier: 1,
+    height: 1.1,
+    color: "#6b4423",
   },
   escudo_madeira: {
     kind: "shield",

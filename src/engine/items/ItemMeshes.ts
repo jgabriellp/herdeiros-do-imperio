@@ -1,5 +1,5 @@
-import { Color3, MeshBuilder, StandardMaterial, TransformNode, type Mesh, type Scene } from "@babylonjs/core";
-import type { ItemDef, ShieldItem, SwordItem } from "./ItemConfig";
+import { Color3, MeshBuilder, StandardMaterial, TransformNode, Vector3, type Mesh, type Scene } from "@babylonjs/core";
+import type { BowItem, ItemDef, ShieldItem, SwordItem } from "./ItemConfig";
 
 /** Malha provisória de um item (até chegarem os modelos .glb). */
 export interface ItemMesh {
@@ -11,9 +11,68 @@ export interface ItemMesh {
 /**
  * Espada: empunhadura na origem, lâmina ao longo de +Y.
  * Escudo: disco centrado na origem, face voltada para +Z.
+ * Arco: empunhadura na origem, braços ao longo de ±Y, curvado para +Z; corda em z negativo.
  */
 export function createItemMesh(scene: Scene, item: ItemDef, name: string): ItemMesh {
-  return item.kind === "sword" ? createSword(scene, item, name) : createShield(scene, item, name);
+  switch (item.kind) {
+    case "sword":
+      return createSword(scene, item, name);
+    case "shield":
+      return createShield(scene, item, name);
+    case "bow":
+      return createBow(scene, item, name);
+  }
+}
+
+/** Flecha: ponta em +Z, comprimento ~0,75 m, origem no meio. */
+export function createArrowMesh(scene: Scene, name: string): ItemMesh {
+  const root = new TransformNode(name, scene);
+  const wood = material(scene, `${name}_shaft`, Color3.FromHexString("#b08a5a"), 0.05);
+  const tip = material(scene, `${name}_tip`, Color3.FromHexString("#9aa0a6"), 0.5);
+  const feather = material(scene, `${name}_feather`, Color3.FromHexString("#e8e2d0"), 0.05);
+
+  const shaft = MeshBuilder.CreateCylinder(`${name}_shaft`, { diameter: 0.022, height: 0.7, tessellation: 6 }, scene);
+  shaft.rotation.x = Math.PI / 2;
+  shaft.material = wood;
+  const head = MeshBuilder.CreateCylinder(`${name}_head`, { diameterTop: 0, diameterBottom: 0.05, height: 0.08, tessellation: 6 }, scene);
+  head.rotation.x = Math.PI / 2;
+  head.position.z = 0.39;
+  head.material = tip;
+  const fletch = MeshBuilder.CreateBox(`${name}_fletch`, { width: 0.07, height: 0.005, depth: 0.12 }, scene);
+  fletch.position.z = -0.29;
+  fletch.material = feather;
+
+  const meshes = [shaft, head, fletch];
+  for (const m of meshes) {
+    m.parent = root;
+    m.isPickable = false;
+  }
+  return wrap(root, meshes, [wood, tip, feather]);
+}
+
+function createBow(scene: Scene, item: BowItem, name: string): ItemMesh {
+  const root = new TransformNode(name, scene);
+  const wood = material(scene, `${name}_wood`, Color3.FromHexString(item.color), 0.1);
+  const cord = material(scene, `${name}_string`, Color3.FromHexString("#e9e4d4"), 0.05);
+
+  // Arco de circunferência suave: pontas para trás (-Z), meio para a frente (+Z).
+  const half = item.height / 2;
+  const path: Vector3[] = [];
+  for (let i = 0; i <= 16; i++) {
+    const t = -1 + (2 * i) / 16;
+    path.push(new Vector3(0, t * half, 0.14 * (1 - t * t)));
+  }
+  const limbs = MeshBuilder.CreateTube(`${name}_limbs`, { path, radius: 0.018, tessellation: 6 }, scene);
+  limbs.material = wood;
+  const string = MeshBuilder.CreateCylinder(`${name}_string`, { diameter: 0.006, height: item.height, tessellation: 4 }, scene);
+  string.material = cord;
+
+  const meshes = [limbs, string];
+  for (const m of meshes) {
+    m.parent = root;
+    m.isPickable = false;
+  }
+  return wrap(root, meshes, [wood, cord]);
 }
 
 function createSword(scene: Scene, item: SwordItem, name: string): ItemMesh {

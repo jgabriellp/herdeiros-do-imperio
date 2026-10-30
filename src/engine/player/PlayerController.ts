@@ -63,7 +63,13 @@ export class PlayerController {
   private updateWeaponSwitch(): void {
     if (!CAN_SWITCH_WEAPON.has(this.machine.current.name)) return;
     const { input, equipment } = this.ctx;
-    const mode = input.wasPressed("weaponUnarmed") ? "unarmed" : input.wasPressed("weaponArmed") ? "armed" : null;
+    const mode = input.wasPressed("weaponUnarmed")
+      ? "unarmed"
+      : input.wasPressed("weaponArmed")
+        ? "armed"
+        : input.wasPressed("weaponBow")
+          ? "bow"
+          : null;
     if (mode && equipment.setMode(mode)) this.events.onWeaponChanged(equipment.label);
   }
 
@@ -112,7 +118,8 @@ export class PlayerController {
         gear: {
           sword: this.ctx.equipment.swordId,
           shield: this.ctx.equipment.shieldId,
-          drawn: this.ctx.equipment.mode === "armed",
+          bow: this.ctx.equipment.bowId,
+          mode: this.ctx.equipment.mode,
         },
       },
       dt,

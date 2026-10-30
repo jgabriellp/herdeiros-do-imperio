@@ -80,6 +80,19 @@ export class DamageSystem {
     return events;
   }
 
+  /**
+   * Aplica um golpe já calculado a um alvo específico (projéteis: o acerto foi decidido
+   * por quem disparou). Respeita facção e notifica `onHit` como os golpes corpo a corpo.
+   */
+  applyDirect(target: CombatTarget, attackerFaction: Faction, hit: HitInfo, point: Readonly<Vector3>): HitOutcome {
+    if (target.faction === attackerFaction || !target.isAlive) return "ignored";
+    const outcome = target.receiveHit(hit);
+    if (outcome === "ignored") return outcome;
+    const event: HitEvent = { target, attackerFaction, hit, outcome, point };
+    for (const listener of this.listeners) listener(event);
+    return outcome;
+  }
+
   dispose(): void {
     this.targets.clear();
     this.listeners.clear();

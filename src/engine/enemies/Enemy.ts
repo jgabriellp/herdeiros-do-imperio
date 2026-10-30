@@ -21,7 +21,8 @@ export interface EnemyDeps {
   player: CombatTarget;
   /** Pés dos outros inimigos vivos. */
   neighborsOf(enemy: Enemy): Iterable<Readonly<Vector3>>;
-  allyEngagedWithin(enemy: Enemy, radius: number): boolean;
+  /** Grito de alerta ouvido pelos aliados desprevenidos no raio. */
+  shout(from: Enemy, radius: number): void;
 }
 
 /** Inimigo criado a partir do encounters.json, com IA por máquina de estados. */
@@ -67,7 +68,7 @@ export class Enemy implements CombatTarget {
       coordinator: deps.coordinator,
       player: deps.player,
       neighbors: () => deps.neighborsOf(this),
-      allyEngagedWithin: (radius) => deps.allyEngagedWithin(this, radius),
+      shout: (radius) => deps.shout(this, radius),
       action: null,
       attackCooldown: 0,
       removable: false,
@@ -78,6 +79,19 @@ export class Enemy implements CombatTarget {
 
   get isAlive(): boolean {
     return this.machine.current.name !== "Dead";
+  }
+
+  /** Desprevenido: não sabe do jogador (vulnerável ao abate furtivo). */
+  get isUnaware(): boolean {
+    return this.machine.current.name === "Idle";
+  }
+
+  /** Ouviu o grito de um aliado: se estava desprevenido, entra na luta (e grita também). */
+  hearShout(): void {
+    if (!this.isUnaware || !this.ctx.player.isAlive) return;
+    // Troca de estado antes de gritar (senão o eco voltaria para ele em loop).
+    this.machine.change("Chase");
+    this.ctx.shout(this.type.ai.alertRadius);
   }
 
   /** Lutando = percebeu o jogador (qualquer estado vivo exceto Idle). */
@@ -126,15 +140,23 @@ export class Enemy implements CombatTarget {
 
   receiveHit(hit: HitInfo): HitOutcome {
     if (!this.isAlive) return "ignored";
-    this.health = Math.max(0, this.health - hit.damage);
-    this.flashTimer = this.type.hitFlashDuration;
-    if (this.health <= 0) {
+    // Abate furtivo (ex.: flecha em quem não sabe do jogador): morre na hora e em silêncio.
+    if (hit.stealthKill && this.isUnaware) {
+      this.health = 0;
+      this.flashTimer = this.type.hitFlashDuration;
       this.machine.change("Dead", { hit });
       return "killed";
     }
+
+    this.health = Math.max(0, this.health - hit.damage);
+    this.flashTimer = this.type.hitFlashDuration;
+    const killed = this.health <= 0;
     // Golpe interrompe qualquer ação (inclusive a preparação do ataque).
-    this.machine.change("HitStun", { hit });
-    return "hit";
+    if (killed) this.machine.change("Dead", { hit });
+    else this.machine.change("HitStun", { hit });
+    // Ferido grita (inclusive ao morrer): aliados desprevenidos próximos entram na luta.
+    this.ctx.shout(this.type.ai.alertRadius);
+    return killed ? "killed" : "hit";
   }
 
   update(dt: number): void {

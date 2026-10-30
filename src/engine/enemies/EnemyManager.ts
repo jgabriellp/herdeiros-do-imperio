@@ -31,7 +31,7 @@ export class EnemyManager {
       coordinator: this.coordinator,
       player: deps.player,
       neighborsOf: (enemy) => this.neighborsOf(enemy),
-      allyEngagedWithin: (enemy, radius) => this.allyEngagedWithin(enemy, radius),
+      shout: (enemy, radius) => this.shout(enemy, radius),
     });
   }
 
@@ -84,11 +84,13 @@ export class EnemyManager {
     this.enemies.length = 0;
   }
 
-  private allyEngagedWithin(self: Enemy, radius: number): boolean {
-    const me = self.feetPosition;
-    return this.enemies.some(
-      (e) => e !== self && e.isEngaged && Math.hypot(e.feetPosition.x - me.x, e.feetPosition.z - me.z) <= radius,
-    );
+  /** Grito de alerta: aliados vivos e desprevenidos no raio entram na luta. */
+  private shout(from: Enemy, radius: number): void {
+    const p = from.feetPosition;
+    for (const e of this.enemies) {
+      if (e === from || !e.isAlive) continue;
+      if (Math.hypot(e.feetPosition.x - p.x, e.feetPosition.z - p.z) <= radius) e.hearShout();
+    }
   }
 
   private *neighborsOf(self: Enemy): Iterable<Readonly<Vector3>> {

@@ -10,7 +10,17 @@ import type { PlayerEquipment } from "../PlayerEquipment";
 import type { PlayerStats } from "../PlayerStats";
 import type { VisualAction } from "../PlayerVisual";
 
-export type PlayerStateName = "Idle" | "Move" | "Run" | "Jump" | "Attack" | "HitStun" | "Dodge" | "Block" | "Dead";
+export type PlayerStateName =
+  | "Idle"
+  | "Move"
+  | "Run"
+  | "Jump"
+  | "Attack"
+  | "HitStun"
+  | "Dodge"
+  | "Block"
+  | "Aim"
+  | "Dead";
 
 /** Parâmetros de entrada de cada estado (void = nenhum). */
 export interface PlayerStateParams {
@@ -23,6 +33,8 @@ export interface PlayerStateParams {
   HitStun: { hit: HitInfo };
   Dodge: void;
   Block: void;
+  /** hip = tiro rápido sem mirar. */
+  Aim: { hip: boolean };
   Dead: void;
 }
 
@@ -49,6 +61,8 @@ export interface PlayerContext {
   lockYaw(): number | null;
   /** Primeiro golpe do combo conforme a arma na mão (punhos ou espada). */
   comboStarter(): AttackId;
+  /** Dispara uma flecha com a tensão dada (0..1); `aimed` = mirando pela câmera. */
+  fireArrow(charge: number, aimed: boolean): void;
 }
 
 /** Contrato mínimo da máquina visto pelos estados (evita import circular). */

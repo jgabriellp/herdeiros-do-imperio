@@ -24,6 +24,7 @@ export interface CameraLockTarget {
  * Câmera orbital em terceira pessoa.
  * - Livre: mouse/analógico controla yaw/pitch, com limites verticais e suavização.
  * - Travada: fica atrás do jogador olhando para o alvo e enquadra os dois.
+ * - Mira (arco): aproxima e vai para o ombro direito, FOV menor, mouse mais preciso.
  * - Não atravessa paredes: raycast do jogador até a câmera contra a camada WORLD;
  *   aproxima na hora quando bloqueada e volta suavemente quando livre.
  */
@@ -44,6 +45,11 @@ export class ThirdPersonCamera {
   private readonly scaled = new Vector3();
   private readonly hit = new PhysicsRaycastResult();
   private readonly shakenLook = new Vector3();
+  /** Centro da órbita: o ponto seguido, deslocado para o ombro quando mira. */
+  private readonly pivot = new Vector3();
+  private readonly forward = new Vector3();
+  /** 0 = câmera normal, 1 = câmera de mira (transição suave). */
+  private aimBlend = 0;
   private initialized = false;
   private shake: CameraShakeSource | null = null;
 
@@ -74,6 +80,15 @@ export class ThirdPersonCamera {
     return this.currentDistance;
   }
 
+  /** Direção para onde a câmera olha (centro da tela = retícula). */
+  get aimDirection(): Readonly<Vector3> {
+    return this.forward;
+  }
+
+  get position(): Readonly<Vector3> {
+    return this.camera.position;
+  }
+
   setShakeSource(shake: CameraShakeSource | null): void {
     this.shake = shake;
   }
@@ -91,13 +106,21 @@ export class ThirdPersonCamera {
     this.targetPitch = this.config.initialPitch;
   }
 
-  update(dt: number, lock: CameraLockTarget | null): void {
+  update(dt: number, lock: CameraLockTarget | null, aiming = false): void {
     const cfg = this.config;
     this.updateFollowPoint(dt);
+    this.aimBlend += ((aiming ? 1 : 0) - this.aimBlend) * damp(cfg.aim.blendSharpness, dt);
 
     let wantedDistance: number;
     let rotationSharpness: number;
-    if (lock) {
+    if (aiming) {
+      // Mirando, o mouse manda (mais preciso) e a trava é ignorada.
+      const look = this.input.look;
+      this.targetYaw += look.x * cfg.aim.sensitivityScale;
+      this.targetPitch = clamp(this.targetPitch + look.y * cfg.aim.sensitivityScale, cfg.aim.minPitch, cfg.aim.maxPitch);
+      wantedDistance = cfg.aim.distance;
+      rotationSharpness = cfg.rotationSharpness;
+    } else if (lock) {
       const t = lock.feetPosition;
       const dx = t.x - this.followPoint.x;
       const dz = t.z - this.followPoint.z;
@@ -115,18 +138,30 @@ export class ThirdPersonCamera {
       this.targetPitch = clamp(this.targetPitch + look.y, cfg.minPitch, cfg.maxPitch);
       this.userDistance = clamp(this.userDistance + this.input.zoom * cfg.zoomStep, cfg.minDistance, cfg.maxDistance);
       wantedDistance = this.userDistance;
-      this.desiredLook.copyFrom(this.followPoint);
       rotationSharpness = cfg.rotationSharpness;
     }
 
     const rot = damp(rotationSharpness, dt);
     this._yaw += (this.targetYaw - this._yaw) * rot;
     this.pitch += (this.targetPitch - this.pitch) * rot;
-    Vector3.LerpToRef(this.lookPoint, this.desiredLook, damp(cfg.lookSharpness, dt), this.lookPoint);
 
     // Direção do jogador para a câmera (oposta ao "olhar").
     const cosPitch = Math.cos(this.pitch);
     this.offset.set(-Math.sin(this._yaw) * cosPitch, Math.sin(this.pitch), -Math.cos(this._yaw) * cosPitch);
+    this.offset.scaleToRef(-1, this.forward);
+
+    // Pivô no ombro direito conforme a mira entra (direita da câmera = (cos, 0, -sin)).
+    const shoulder = cfg.aim.shoulderOffset * this.aimBlend;
+    this.pivot.set(
+      this.followPoint.x + Math.cos(this._yaw) * shoulder,
+      this.followPoint.y + cfg.aim.heightOffset * this.aimBlend,
+      this.followPoint.z - Math.sin(this._yaw) * shoulder,
+    );
+    // Sem trava, a câmera olha "através" do pivô (ao longo da frente).
+    if (!lock || aiming) this.desiredLook.copyFrom(this.pivot);
+    Vector3.LerpToRef(this.lookPoint, this.desiredLook, damp(cfg.lookSharpness, dt), this.lookPoint);
+    if (aiming) this.lookPoint.copyFrom(this.pivot); // mirando: sem atraso entre retícula e mouse
+    this.camera.fov = cfg.fov + (cfg.aim.fov - cfg.fov) * this.aimBlend;
 
     const allowed = this.collisionDistance(wantedDistance);
     if (allowed < this.currentDistance) {
@@ -136,7 +171,7 @@ export class ThirdPersonCamera {
     }
 
     this.offset.scaleToRef(this.currentDistance, this.scaled);
-    this.camera.position.copyFrom(this.followPoint).addInPlace(this.scaled);
+    this.camera.position.copyFrom(this.pivot).addInPlace(this.scaled);
     if (this.shake) {
       // Desloca câmera e alvo juntos: treme a imagem sem girar o mundo.
       this.camera.position.addInPlace(this.shake.offset);
@@ -174,8 +209,8 @@ export class ThirdPersonCamera {
     if (!(physics instanceof PhysicsEngineV2)) return wanted;
     const reach = wanted + this.config.collisionMargin;
     this.offset.scaleToRef(reach, this.scaled);
-    this.rayEnd.copyFrom(this.followPoint).addInPlace(this.scaled);
-    physics.raycastToRef(this.followPoint, this.rayEnd, this.hit, { collideWith: CollisionLayers.WORLD });
+    this.rayEnd.copyFrom(this.pivot).addInPlace(this.scaled);
+    physics.raycastToRef(this.pivot, this.rayEnd, this.hit, { collideWith: CollisionLayers.WORLD });
     if (!this.hit.hasHit) return wanted;
     return Math.max(0.2, Math.min(wanted, this.hit.hitDistance - this.config.collisionMargin));
   }

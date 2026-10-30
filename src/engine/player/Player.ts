@@ -29,6 +29,8 @@ export interface PlayerDeps {
   events: PlayerControllerEvents;
   /** Chamado uma vez quando a vida chega a zero. */
   onDied(): void;
+  /** O arco disparou: quem cria a flecha calcula a direção (câmera, alvo travado ou frente). */
+  onFireArrow(charge: number, aimed: boolean): void;
 }
 
 /**
@@ -92,6 +94,7 @@ export class Player implements CombatTarget {
       comboStarter() {
         return deps.equipment.swordDrawn ? deps.combat.swordComboStarter : deps.combat.comboStarter;
       },
+      fireArrow: (charge, aimed) => deps.onFireArrow(charge, aimed),
     };
     this.machine = new PlayerStateMachine(ctx);
     this.controller = new PlayerController(
@@ -117,6 +120,11 @@ export class Player implements CombatTarget {
 
   get feetPosition(): Readonly<Vector3> {
     return this.motor.feetPosition;
+  }
+
+  /** Mirando com o arco (câmera no ombro + retícula). */
+  get isAiming(): boolean {
+    return this.machine.current === this.machine.aimState && this.machine.aimState.aiming;
   }
 
   /** Esquivando (i-frames) ou recém-atingido. */

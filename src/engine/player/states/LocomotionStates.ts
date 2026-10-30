@@ -16,6 +16,17 @@ abstract class LocomotionState<K extends "Idle" | "Move" | "Run"> extends Player
       return;
     }
     if (input.wasPressed("dodge") && this.machine.tryDodge()) return;
+    if (this.ctx.equipment.bowDrawn) {
+      // Com o arco: botão direito mira; clique sem mirar = tiro rápido.
+      if (input.isDown("aim")) {
+        this.machine.change("Aim", { hip: false });
+        return;
+      }
+      if (input.wasPressed("attack")) {
+        this.machine.change("Aim", { hip: true });
+        return;
+      }
+    }
     if (input.isDown("block") && this.ctx.equipment.canBlock) {
       this.machine.change("Block");
       return;

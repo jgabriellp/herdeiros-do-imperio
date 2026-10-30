@@ -36,8 +36,9 @@ Clique no jogo para capturar o mouse; Esc solta.
 | Mouse                 | Girar a câmera                                             |
 | Roda do mouse         | Aproximar/afastar a câmera                                 |
 | Botão esquerdo        | Golpe (soco ou espada); clique de novo no ritmo para um combo de 3 |
-| Botão direito (segurar) | Bloquear com o escudo (golpes de frente, gasta stamina)  |
-| 1 / 2                 | Trocar para punhos / para a arma (espada e escudo)         |
+| Botão direito (segurar) | Com escudo: bloquear (golpes de frente, gasta stamina). Com arco: mirar |
+| Botão esquerdo (com arco) | Mirando: segure para puxar a corda e solte para atirar. Sem mirar: tiro rápido |
+| 1 / 2 / 3             | Trocar para punhos / espada e escudo / arco                |
 | F                     | Chute (mais lento, mais dano, empurra)                     |
 | C                     | Esquiva (breve invulnerabilidade, gasta stamina)           |
 | Q / botão do meio     | Travar/destravar a mira no inimigo à frente; sem alvo, recentraliza a câmera |
@@ -60,10 +61,11 @@ No console, `herdeiros.switchEpisode("s01e01")` troca de episódio sem recarrega
 
 ## O que o sandbox testa
 
-1. Atrás do ponto inicial, à esquerda, há dois pedestais: pegue a espada e o escudo.
+1. Atrás do ponto inicial, à esquerda, há três pedestais: pegue a espada, o escudo e o arco.
 2. Ande até a arena: passar pelo disco azul salva o checkpoint ("Checkpoint salvo").
 3. Os três vândalos (fraco, rápido e bruto) atacam; no máximo dois por vez, os outros rondam.
    Antes de cada golpe a clava brilha em amarelo: hora de esquivar ou erguer o escudo.
+   Com o arco, de longe, uma flecha num inimigo desprevenido o abate em silêncio, sem alertar os outros.
 4. Se a vida acabar, você renasce no último checkpoint.
 5. Derrote todos: aparece "Episódio concluído", o episódio fica marcado no save e o evento
    `episodeCompleted` é emitido.
@@ -139,7 +141,8 @@ A arquitetura completa e as decisões do projeto estão no [CLAUDE.md](CLAUDE.md
    - `pickups` (opcional): itens no mapa, ex.:
      `{ "id": "pedestal_espada", "item": "espada_simples", "position": { "x": -3, "y": 0.8, "z": -4 } }`.
      `position` é a base do item; o `id` precisa ser único no episódio (o save lembra o que já foi
-     pego). Itens disponíveis em `src/engine/items/ItemConfig.ts`: `espada_simples`, `escudo_madeira`.
+     pego). Itens disponíveis em `src/engine/items/ItemConfig.ts`: `espada_simples`, `escudo_madeira`,
+     `arco_curto`.
 4. Crie o `encounters.json`:
    ```json
    {

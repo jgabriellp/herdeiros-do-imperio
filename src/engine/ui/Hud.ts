@@ -1,4 +1,4 @@
-import { AdvancedDynamicTexture, Control, Rectangle, StackPanel, TextBlock } from "@babylonjs/gui";
+import { AdvancedDynamicTexture, Control, Ellipse, Rectangle, StackPanel, TextBlock } from "@babylonjs/gui";
 import type { Scene } from "@babylonjs/core";
 
 const FONT = "Georgia, 'Times New Roman', serif";
@@ -6,6 +6,9 @@ const GOLD = "#f3d27a";
 const PARCHMENT = "#f3e9d2";
 const HEALTH_COLOR = "#c0392b";
 const STAMINA_COLOR = "#7cb342";
+/** Retícula do arco: anel que fecha conforme a corda é puxada. */
+const RETICLE_OPEN = 46;
+const RETICLE_CLOSED = 14;
 /** Stamina insuficiente para esquivar: barra muda de cor para avisar. */
 const STAMINA_LOW_COLOR = "#e67e22";
 
@@ -103,6 +106,8 @@ export class Hud {
   private readonly subtitle: FadingText;
   private readonly toast: FadingText;
   private readonly veil: Rectangle;
+  private readonly reticleDot: Ellipse;
+  private readonly reticleRing: Ellipse;
   private veilTarget = 0;
 
   constructor(scene: Scene, private readonly staminaLowThreshold: number) {
@@ -160,6 +165,21 @@ export class Hud {
     center.addControl(this.title.block);
     center.addControl(this.subtitle.block);
 
+    // Retícula (mira do arco) no centro da tela.
+    this.reticleDot = new Ellipse("reticleDot");
+    this.reticleDot.width = this.reticleDot.height = "6px";
+    this.reticleDot.background = PARCHMENT;
+    this.reticleDot.color = "#000000";
+    this.reticleDot.thickness = 1;
+    this.reticleRing = new Ellipse("reticleRing");
+    this.reticleRing.thickness = 2;
+    this.reticleRing.color = PARCHMENT;
+    for (const c of [this.reticleDot, this.reticleRing]) {
+      c.isHitTestVisible = false;
+      c.isVisible = false;
+      this.ui.addControl(c);
+    }
+
     // Aviso curto no alto da tela.
     this.toast = new FadingText("hudToast", 24, PARCHMENT);
     this.toast.block.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
@@ -167,10 +187,19 @@ export class Hud {
     this.ui.addControl(this.toast.block);
   }
 
-  /** Arma na mão (e atalhos de troca, se houver o que trocar). */
-  setWeapon(label: string, canSwitch: boolean): void {
-    const text = canSwitch ? `${label}   [1] Punhos  [2] Arma` : label;
+  /** Arma na mão e os atalhos de troca disponíveis (vazio = nada para trocar). */
+  setWeapon(label: string, switchHint: string): void {
+    const text = switchHint ? `${label}   ${switchHint}` : label;
     if (this.weaponText.text !== text) this.weaponText.text = text;
+  }
+
+  /** Mostra a retícula enquanto mira; o anel fecha com a tensão da corda (0..1). */
+  setAim(visible: boolean, charge: number): void {
+    this.reticleDot.isVisible = this.reticleRing.isVisible = visible;
+    if (!visible) return;
+    const size = RETICLE_OPEN + (RETICLE_CLOSED - RETICLE_OPEN) * charge;
+    this.reticleRing.width = this.reticleRing.height = `${size.toFixed(1)}px`;
+    this.reticleRing.color = charge >= 1 ? GOLD : PARCHMENT;
   }
 
   /** Mensagem grande no centro por alguns segundos. */

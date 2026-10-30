@@ -10,7 +10,7 @@ import {
 } from "@babylonjs/core";
 import { damp } from "../core/mathUtils";
 import { getItem } from "../items/ItemConfig";
-import { createItemMesh, type ItemMesh } from "../items/ItemMeshes";
+import { createArrowMesh, createItemMesh, type ItemMesh } from "../items/ItemMeshes";
 import type { PlayerVisual, PlayerVisualState, VisualAction } from "./PlayerVisual";
 
 const BODY_COLOR = Color3.FromHexString("#3d5a80");
@@ -48,6 +48,14 @@ const SHIELD = {
   back: { x: 0, y: 1.0, z: -0.4 },
   impactPush: 0.12,
 };
+/** Arco: na mão esquerda ao lado do corpo, erguido à frente ao mirar, nas costas se guardado. */
+const BOW = {
+  hand: { x: -0.4, y: 1.0, z: 0.12, tilt: 0.15 },
+  raised: { x: -0.08, y: 1.42, z: 0.55, tilt: 0.12 },
+  back: { x: -0.12, y: 1.2, z: -0.38, roll: -0.6 },
+  /** Quanto a flecha recua (m) com a corda toda puxada. */
+  pull: 0.45,
+};
 
 /**
  * Visual provisório: cápsula com "visor" indicando a frente, e punho/pé que
@@ -72,6 +80,10 @@ export class CapsuleVisual implements PlayerVisual {
   private shield: ItemMesh | null = null;
   private swordId: string | null = null;
   private shieldId: string | null = null;
+  private bow: ItemMesh | null = null;
+  private bowId: string | null = null;
+  /** Flecha encaixada na corda (aparece ao mirar). */
+  private nockedArrow: ItemMesh | null = null;
 
   constructor(
     private readonly scene: Scene,
@@ -125,7 +137,7 @@ export class CapsuleVisual implements PlayerVisual {
     this.bodyMaterial.emissiveColor.set(0, 0, 0);
     this.actionVisibility = 1;
 
-    this.syncGear(state.gear.sword, state.gear.shield);
+    this.syncGear(state.gear.sword, state.gear.shield, state.gear.bow);
     this.poseGear(state);
 
     if (state.action) this.applyAction(state.action);
@@ -140,6 +152,8 @@ export class CapsuleVisual implements PlayerVisual {
   dispose(): void {
     this.sword?.dispose();
     this.shield?.dispose();
+    this.bow?.dispose();
+    this.nockedArrow?.dispose();
     this.root.dispose(false, true);
     for (const m of this.materials) m.dispose();
   }
@@ -152,6 +166,11 @@ export class CapsuleVisual implements PlayerVisual {
         return this.poseKick(action.phase, action.phaseProgress);
       case "sword":
         return this.poseSword(action.comboIndex, action.phase, action.phaseProgress);
+      case "aim":
+        // Postura de arqueiro: tronco de lado, levemente inclinado para trás.
+        this.body.rotation.y = 0.35;
+        this.body.rotation.x = -0.04;
+        return;
       case "block":
         // Firma o corpo atrás do escudo; o tranco inclina para trás.
         this.body.rotation.x = 0.08 - 0.15 * action.impact;
@@ -222,7 +241,16 @@ export class CapsuleVisual implements PlayerVisual {
   }
 
   /** Recria espada/escudo quando o item na mão muda. */
-  private syncGear(swordId: string | null, shieldId: string | null): void {
+  private syncGear(swordId: string | null, shieldId: string | null, bowId: string | null): void {
+    if (bowId !== this.bowId) {
+      this.bow?.dispose();
+      this.nockedArrow?.dispose();
+      const item = getItem(bowId);
+      this.bow = item ? this.attachItem(createItemMesh(this.scene, item, "playerBow")) : null;
+      this.nockedArrow = item ? this.attachItem(createArrowMesh(this.scene, "playerNockedArrow")) : null;
+      if (this.nockedArrow) this.nockedArrow.root.parent = this.body;
+      this.bowId = bowId;
+    }
     if (swordId !== this.swordId) {
       this.sword?.dispose();
       const item = getItem(swordId);
@@ -242,9 +270,10 @@ export class CapsuleVisual implements PlayerVisual {
     return item;
   }
 
-  /** Pose padrão do equipamento (guardado nas costas, na mão, ou escudo erguido). */
+  /** Pose padrão do equipamento (guardado nas costas, na mão, escudo/arco erguido). */
   private poseGear(state: PlayerVisualState): void {
-    const drawn = state.gear.drawn;
+    const drawn = state.gear.mode === "armed";
+    this.poseBow(state);
     if (this.sword) {
       const r = this.sword.root;
       if (drawn) {
@@ -272,6 +301,32 @@ export class CapsuleVisual implements PlayerVisual {
       } else {
         r.position.set(SHIELD.arm.x, SHIELD.arm.y, SHIELD.arm.z);
         r.rotation.set(0, SHIELD.arm.yaw, 0);
+      }
+    }
+  }
+
+  private poseBow(state: PlayerVisualState): void {
+    if (!this.bow) return;
+    const r = this.bow.root;
+    r.parent = this.body;
+    const aim = state.action?.kind === "aim" ? state.action : null;
+    if (state.gear.mode !== "bow") {
+      r.position.set(BOW.back.x, BOW.back.y, BOW.back.z);
+      r.rotation.set(0, Math.PI, BOW.back.roll);
+    } else if (aim) {
+      r.position.set(BOW.raised.x, BOW.raised.y, BOW.raised.z);
+      r.rotation.set(0, 0, BOW.raised.tilt);
+    } else {
+      r.position.set(BOW.hand.x, BOW.hand.y, BOW.hand.z);
+      r.rotation.set(0, 0, BOW.hand.tilt);
+    }
+    if (this.nockedArrow) {
+      this.nockedArrow.root.setEnabled(aim !== null);
+      if (aim) {
+        // Flecha apoiada no arco, recuando com a corda.
+        const z = BOW.raised.z + 0.3 - BOW.pull * aim.charge;
+        this.nockedArrow.root.position.set(BOW.raised.x + 0.02, BOW.raised.y, z);
+        this.nockedArrow.root.rotation.set(0, 0, 0);
       }
     }
   }
@@ -307,7 +362,7 @@ export class CapsuleVisual implements PlayerVisual {
   private refreshVisibility(): void {
     const v = this.cameraVisibility * this.actionVisibility;
     for (const mesh of this.bodyMeshes) mesh.visibility = v;
-    for (const item of [this.sword, this.shield]) {
+    for (const item of [this.sword, this.shield, this.bow, this.nockedArrow]) {
       if (item) for (const mesh of item.meshes) mesh.visibility = v;
     }
   }

@@ -7,8 +7,10 @@ export type ButtonAction =
   | "dodge"
   | "lockOn"
   | "block"
+  | "aim"
   | "weaponUnarmed"
-  | "weaponArmed";
+  | "weaponArmed"
+  | "weaponBow";
 
 /**
  * O que todas as fontes de input produzem a cada quadro, já em unidades do jogo.

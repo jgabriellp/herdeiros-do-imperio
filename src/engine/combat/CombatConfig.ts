@@ -119,6 +119,42 @@ export interface PlayerDeathConfig {
   respawnInvulnerability: number;
 }
 
+export interface BowConfig {
+  /** Tempo para puxar a corda até a tensão máxima. */
+  drawTime: number;
+  /** Tensão mínima para a flecha sair (soltar antes disso cancela). */
+  minCharge: number;
+  /** Velocidade da flecha com tensão mínima e máxima (m/s). */
+  minSpeed: number;
+  maxSpeed: number;
+  /** Dano com tensão mínima e máxima. */
+  minDamage: number;
+  maxDamage: number;
+  knockback: number;
+  /** Atordoamento causado em inimigo que já estava em combate. */
+  targetHitStun: number;
+  /** Gravidade da flecha (menor que a real para o tiro ser jogável). */
+  gravity: number;
+  /** Tempo para encaixar a próxima flecha depois de disparar. */
+  nockTime: number;
+  /** Tiro sem mirar: puxada curta e tensão fixa. */
+  hipDrawTime: number;
+  hipCharge: number;
+  /** Velocidade andando com a mira. */
+  aimMoveSpeed: number;
+  /** Alcance do raio da retícula (o ponto que a flecha procura). */
+  aimRange: number;
+  /** Origem da flecha em relação aos pés: altura e distância à frente. */
+  spawnHeight: number;
+  spawnForward: number;
+  /** Tempo máximo voando; depois some. */
+  flightLifetime: number;
+  /** Tempo cravada no cenário antes de sumir. */
+  stuckLifetime: number;
+  /** Máximo de flechas na cena (as mais antigas somem). */
+  maxArrows: number;
+}
+
 export interface CombatConfig {
   attacks: Record<AttackId, AttackConfig>;
   /** Primeiro golpe do combo de punhos. */
@@ -137,6 +173,7 @@ export interface CombatConfig {
   /** Tremida quando o jogador é atingido. */
   playerHurtShake: CameraShakeConfig;
   death: PlayerDeathConfig;
+  bow: BowConfig;
 }
 
 const PUNCH_HITBOX: HitboxShape = { radius: 0.45, reach: 0.75, height: 1.25 };
@@ -304,5 +341,26 @@ export const DEFAULT_COMBAT_CONFIG: CombatConfig = {
   death: {
     respawnDelay: 2.5,
     respawnInvulnerability: 2,
+  },
+  bow: {
+    drawTime: 0.8,
+    minCharge: 0.2,
+    minSpeed: 20,
+    maxSpeed: 48,
+    minDamage: 10,
+    maxDamage: 30,
+    knockback: 1.2,
+    targetHitStun: 0.25,
+    gravity: 9,
+    nockTime: 0.3,
+    hipDrawTime: 0.22,
+    hipCharge: 0.45,
+    aimMoveSpeed: 2.4,
+    aimRange: 80,
+    spawnHeight: 1.45,
+    spawnForward: 0.5,
+    flightLifetime: 4,
+    stuckLifetime: 8,
+    maxArrows: 40,
   },
 };

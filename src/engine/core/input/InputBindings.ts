@@ -25,9 +25,12 @@ export const DEFAULT_KEYBOARD_MOUSE_BINDINGS: KeyboardMouseBindings = {
     kick: ["KeyF"],
     dodge: ["KeyC"],
     lockOn: ["KeyQ", "MouseMiddle"],
+    // Botão direito: bloquear (com escudo) ou mirar (com arco), conforme a arma na mão.
     block: ["MouseRight"],
+    aim: ["MouseRight"],
     weaponUnarmed: ["Digit1"],
     weaponArmed: ["Digit2"],
+    weaponBow: ["Digit3"],
   },
 };
 

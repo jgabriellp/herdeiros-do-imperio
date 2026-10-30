@@ -35,6 +35,20 @@ export interface ThirdPersonCameraConfig {
   lockDistancePerMeter: number;
   /** Suavização do ponto observado ao entrar/sair da trava. */
   lookSharpness: number;
+  // --- mira do arco (por cima do ombro) ---
+  aim: {
+    distance: number;
+    /** Deslocamento para a direita (ombro) e para cima, em metros. */
+    shoulderOffset: number;
+    heightOffset: number;
+    fov: number;
+    /** Multiplica a sensibilidade do mouse enquanto mira. */
+    sensitivityScale: number;
+    minPitch: number;
+    maxPitch: number;
+    /** Suavização da transição entre câmera normal e de mira. */
+    blendSharpness: number;
+  };
 }
 
 export const DEFAULT_CAMERA_CONFIG: ThirdPersonCameraConfig = {
@@ -59,4 +73,14 @@ export const DEFAULT_CAMERA_CONFIG: ThirdPersonCameraConfig = {
   lockLookBias: 0.4,
   lockDistancePerMeter: 0.3,
   lookSharpness: 10,
+  aim: {
+    distance: 2.8,
+    shoulderOffset: 0.85,
+    heightOffset: 0.2,
+    fov: 0.78,
+    sensitivityScale: 0.6,
+    minPitch: -0.7,
+    maxPitch: 0.9,
+    blendSharpness: 12,
+  },
 };

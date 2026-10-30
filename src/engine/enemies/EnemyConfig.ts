@@ -27,7 +27,10 @@ export interface EnemyAttackConfig {
 export interface EnemyAiConfig {
   /** Percebe o jogador a esta distância. */
   aggroRange: number;
-  /** Entra na luta se um aliado a esta distância já estiver lutando (alerta de grupo). */
+  /**
+   * Raio do grito de alerta: ao avistar o jogador ou ser atingido, o inimigo grita e os
+   * aliados desprevenidos a esta distância entram na luta. Abate silencioso não grita.
+   */
   alertRadius: number;
   /** Desiste se o jogador passar desta distância. */
   loseAggroRange: number;

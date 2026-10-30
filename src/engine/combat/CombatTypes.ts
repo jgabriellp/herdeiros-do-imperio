@@ -15,6 +15,11 @@ export interface HitInfo {
   hitStun: number;
   /** Golpe forte: usado para efeitos mais intensos (tremida de câmera etc.). */
   heavy: boolean;
+  /**
+   * Golpe capaz de abate furtivo: mata na hora um alvo desprevenido (ex.: flecha),
+   * em silêncio. Sem efeito em quem já está em combate.
+   */
+  stealthKill?: boolean;
 }
 
 /**

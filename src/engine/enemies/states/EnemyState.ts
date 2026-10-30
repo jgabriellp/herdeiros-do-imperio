@@ -38,8 +38,8 @@ export interface EnemyContext {
   readonly player: CombatTarget;
   /** Pés dos outros inimigos vivos (para não se amontoarem). */
   neighbors(): Iterable<Readonly<Vector3>>;
-  /** Algum aliado a até `radius` metros já está lutando? */
-  allyEngagedWithin(radius: number): boolean;
+  /** Grita: aliados desprevenidos a até `radius` metros entram na luta. */
+  shout(radius: number): void;
   action: EnemyVisualAction | null;
   /** Tempo até poder pedir a vez de atacar de novo. */
   attackCooldown: number;

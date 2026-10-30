@@ -1,6 +1,9 @@
 import { EnemyState } from "./EnemyState";
 
-/** Parado até perceber o jogador por perto (ou ser alertado por um aliado lutando). */
+/**
+ * Desprevenido: parado até perceber o jogador por perto (ou ouvir o grito de um aliado).
+ * Na Tarefa 8, a percepção passa a ser por visão em cone e audição.
+ */
 export class EnemyIdleState extends EnemyState<"Idle"> {
   readonly name = "Idle" as const;
 
@@ -8,8 +11,10 @@ export class EnemyIdleState extends EnemyState<"Idle"> {
     this.resetIntent();
     if (!this.ctx.player.isAlive) return;
     const { ai } = this.ctx.type;
-    const dist = this.toPlayer().dist;
-    const alerted = dist <= ai.loseAggroRange && this.ctx.allyEngagedWithin(ai.alertRadius);
-    if (dist <= ai.aggroRange || alerted) this.machine.change("Chase");
+    if (this.toPlayer().dist <= ai.aggroRange) {
+      // Troca de estado ANTES de gritar: o eco dos aliados não pode alcançá-lo ainda desprevenido.
+      this.machine.change("Chase");
+      this.ctx.shout(ai.alertRadius);
+    }
   }
 }

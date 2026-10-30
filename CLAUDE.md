@@ -20,13 +20,13 @@ Pontos a decidir com o usuário quando chegar a hora (não decidir sozinho):
   terceira pessoa com mira travada estilo Zelda. Manter 3ª pessoa, mudar para 1ª ou ter as duas?
 - **Visual**: o estilo é realista (vegetação densa, iluminação natural, ciclo dia/noite,
   estações). No navegador isso exige cuidado com desempenho e assets (PBR, LOD, vegetação
-  instanciada); avaliar na Tarefa 11 (cenários .glb).
+  instanciada); avaliar na Tarefa 12 (cenários .glb).
 - **Jogabilidade**: Medieval Dynasty tem sobrevivência, coleta, construção, agricultura e gestão
   de vila. Quais desses sistemas entram, e como convivem com o formato episódico de história e
   combate?
 - **Mapas**: mundo aberto contínuo versus fases por episódio (o formato atual).
 - **Diálogos**: escolhas em lista com o NPC na tela (estilo Medieval Dynasty) — alinhado com o
-  plano de usar ink na Tarefa 10.
+  plano de usar ink na Tarefa 11.
 
 ## Resumo da história
 Um império de vários reinos. O imperador se corrompeu e, com dois reinos aliados, guerreou
@@ -72,9 +72,10 @@ src/engine/save/         SaveManager, LocalSaveProvider, migrateSave, defaultSav
 src/engine/character/    CharacterMotor (física de personagem: jogador E inimigos), CharacterConfig
 src/engine/player/       Player (montagem + alvo de combate), PlayerController (orquestra o quadro),
                          PlayerStateMachine + states/ (Idle, Move, Run, Jump, Attack, HitStun, Dodge,
-                         Block, Dead), PlayerStats, PlayerEquipment (armas na mão + entrega de itens), PlayerVisual (interface) + CapsuleVisual, ThirdPersonCamera, configs
+                         Block, Aim, Dead), PlayerStats, PlayerEquipment (armas na mão + entrega de itens), PlayerVisual (interface) + CapsuleVisual, ThirdPersonCamera, configs
 src/engine/combat/       CombatConfig (TODOS os números do combate), CombatTypes (CombatTarget, HitInfo),
-                         Hitbox, DamageSystem, TargetLock, HitboxDebugView
+                         Hitbox, DamageSystem, TargetLock, HitboxDebugView, ArrowSystem (flechas),
+                         arrowAim (direção do disparo), geometry (segmento × cápsula)
 src/engine/enemies/      Enemy, EnemyStateMachine + states/ (Idle, Chase, Attack, HitStun, Dead),
                          AttackCoordinator (fichas de ataque), EnemyVisual, EnemyFactory, EnemyManager,
                          EnemyConfig (tipos, IA, golpe, regras do grupo)
@@ -230,7 +231,7 @@ public/episodes/catalog.json   id → pasta; lido SÓ pelo main.ts
 - **Itens**: catálogo em `items/ItemConfig.ts` (como os tipos de inimigo). Episódios referenciam
   pelo id. `PlayerEquipment.grant(itemId)` é o **único** caminho para dar um item ao jogador:
   entra no inventário (`equipment.owned`) e é equipado se o slot estiver vazio (a 1ª arma já é
-  empunhada). Hoje usado pelos pickups; na Tarefa 10, pelo amigo/NPCs nos diálogos.
+  empunhada). Hoje usado pelos pickups; na Tarefa 11, pelo amigo/NPCs nos diálogos.
 - **Pickups**: lista opcional `pickups` no `level.json` (`id`, `item`, `position` da base).
   Passar a até 1,4 m pega (folga para itens sobre pedestais sólidos). Pegos ficam em
   `save.collectedPickups` como `"episodeId/pickupId"` e não reaparecem. Item desconhecido =
@@ -248,6 +249,28 @@ public/episodes/catalog.json   id → pasta; lido SÓ pelo main.ts
   0,8 s). Inimigo cujo golpe é bloqueado recua (`blockedRecoil` no tipo). Golpes pelos lados/costas
   passam. Novos resultados de golpe: `blocked` e `guardBreak`.
 - Botão direito não abre o menu do navegador (`contextmenu` bloqueado no canvas).
+
+### Decisões registradas (Tarefa 7)
+- **Arco**: item `arco_curto` (slot `ranged`), tecla **3**; com o arco na mão, espada e escudo vão
+  para as costas. Modos de arma agora: `unarmed`, `armed`, `bow`. Ao receber uma arma de mãos
+  vazias, ela é empunhada; senão o modo atual é mantido. **Flechas infinitas por enquanto.**
+- **Mira** (estado `Aim`, botão direito segurado; o mesmo botão bloqueia quando há escudo na mão):
+  câmera vai para o ombro direito (2,8 m, 0,85 m de deslocamento, FOV 0,78, mouse a 60%), ignora a
+  trava, corpo acompanha a câmera, anda a 2,4 m/s. Segurar o clique puxa a corda (0,8 s até 100%);
+  soltar com tensão ≥ 20% dispara; 0,3 s para encaixar a próxima. Retícula com anel que fecha com a
+  tensão (dourado no máximo). Sem mirar, clique = tiro rápido (tensão 45%) no alvo travado ou à frente.
+- **Flechas** (`ArrowSystem`): projéteis com gravidade (9 m/s²), velocidade 20–48 m/s e dano 10–30
+  conforme a tensão (× multiplicador do arco). Colisão com cenário por raycast Havok (WORLD+PROP):
+  crava e some após 8 s; com personagens por segmento × cápsula. Acerto passa por
+  `DamageSystem.applyDirect` (mesmo hit stop/faíscas). Máx. 40 na cena. A direção é calculada para
+  o ponto sob a retícula **com compensação da queda** (a flecha cai onde a retícula aponta).
+  Testado: abates mirados a 16,6 m e 20,4 m.
+- **Abate furtivo** (`HitInfo.stealthKill`, só flechas por ora): alvo **desprevenido** (estado Idle)
+  morre na hora, inclusive o bruto, e **em silêncio**.
+- **Fim do alerta por distância**: o inimigo **grita** ao avistar o jogador ou ao ser ferido; aliados
+  desprevenidos a até `alertRadius` (12 m) entram na luta e gritam também (o alerta se propaga).
+  A troca de estado acontece antes do grito (senão o eco virava recursão infinita). Visão em cone,
+  audição, desconfiança e corpos encontrados: Tarefa 8.
 
 ## Convenções
 - Classes pequenas, responsabilidade única. Comentários em português nas partes não óbvias.
@@ -290,24 +313,36 @@ sem aprovação do usuário; a ordem pode mudar se ele pedir.
   save (v2), itens no mapa (`pickups`), troca 1/2, combo de espada com varredura, bloqueio no
   botão direito com custo de stamina, guarda quebrada e recuo do inimigo, visual da espada e do
   escudo (mão/costas/erguido), arma na HUD. Parry fica para depois.
-- [ ] **Tarefa 7 — Arco com mira por cima do ombro**: câmera de mira deslocada para o ombro,
-  retícula, flechas como projéteis com gravidade, munição no save, reaproveitando
-  equipamento e troca de armas da Tarefa 6.
-- [ ] **Tarefa 8 — Modelos e animações Mixamo**: `PlayerVisual` (e o visual dos inimigos)
+- [x] **Tarefa 7 — Arco e base da furtividade**: arco no pedestal, tecla 3, mira no botão
+  direito (câmera no ombro, retícula), puxar/soltar com tensão, tiro rápido, flechas com gravidade
+  que cravam no cenário, abate furtivo silencioso em inimigo desprevenido, alerta por grito no
+  lugar do alerta por distância. Flechas infinitas por enquanto.
+- [ ] **Tarefa 8 — Percepção e furtividade**
+  1. Consciência do inimigo: **desprevenido → desconfiado (?) → alerta (!)**, com indicadores
+     sobre a cabeça.
+  2. Visão em cone com distância e linha de visão (paredes e pilares bloqueiam).
+  3. Audição: ruídos com raio (combate alto; flecha batendo no cenário baixo, vira distração
+     que faz o inimigo investigar o ponto).
+  4. Desconfiado vai investigar o ponto suspeito; se não achar nada, volta ao normal.
+  5. **Agachar com V** (alterna: aperta uma vez agacha, aperta de novo levanta): mais lento,
+     menos barulho, mais difícil de ver.
+  6. Inimigo que encontra um **companheiro abatido** fica desconfiado (decisão do usuário).
+  7. Alerta de grupo passa a exigir ver ou ouvir a luta.
+- [ ] **Tarefa 9 — Modelos e animações Mixamo**: `PlayerVisual` (e o visual dos inimigos)
   carregando .glb com blend de animações (parado, andar, correr, pular, golpes, esquiva,
-  atordoado, morte) a partir do `PlayerVisualState`. **Depende do usuário** baixar os .glb do
-  Mixamo (conta Adobe); a lista exata de animações será passada antes.
-- [ ] **Tarefa 9 — Menu principal, seleção de episódio e inventário**: tela inicial, lista de
+  atordoado, morte, mirar/atirar, agachado) a partir do `PlayerVisualState`. **Depende do
+  usuário** baixar os .glb do Mixamo (conta Adobe); a lista exata de animações será passada antes.
+- [ ] **Tarefa 10 — Menu principal, seleção de episódio e inventário**: tela inicial, lista de
   episódios do catálogo, episódios concluídos vindos do save e verificação de `requires` feita
   pelo lançador (nunca pelo motor); tela de inventário para escolher qual arma/escudo equipar
   quando houver mais de um.
-- [ ] **Tarefa 10 — Diálogos, NPCs e companheiros**: diálogos em ink lendo e escrevendo as
+- [ ] **Tarefa 11 — Diálogos, NPCs e companheiros**: diálogos em ink lendo e escrevendo as
   flags de história do save; NPCs e companheiros caricatos; NPC entregando itens via
-  `PlayerEquipment.grant` (o amigo que guardou o equipamento do herói). **Depende de autorização** para
-  adicionar a biblioteca `inkjs`.
-- [ ] **Tarefa 11 — Cenários .glb com assets CC0**: novo tipo de fase `"glb"` no `level` do
+  `PlayerEquipment.grant` (o amigo que guardou o equipamento do herói). **Depende de autorização**
+  para adicionar a biblioteca `inkjs`.
+- [ ] **Tarefa 12 — Cenários .glb com assets CC0**: novo tipo de fase `"glb"` no `level` do
   manifesto (novo `case` no `EpisodeLoader` + construtor em `world/`), com colisores.
-- [ ] **Tarefa 12 — Conteúdo do s01e01 "Vândalos na Colheita"**: a fazenda, a colheita, os
+- [ ] **Tarefa 13 — Conteúdo do s01e01 "Vândalos na Colheita"**: a fazenda, a colheita, os
   vândalos e as primeiras escolhas gravadas em flags de história.
 
 Fora do escopo por enquanto: plataforma web (login, catálogo, save na nuvem) e pagamentos.
