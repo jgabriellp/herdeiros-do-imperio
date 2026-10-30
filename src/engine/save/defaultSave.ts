@@ -11,5 +11,6 @@ export function createDefaultSave(): SaveData {
     storyFlags: {},
     player: { maxHealth: 100, maxStamina: 100 },
     equipment: { mainHand: null, offHand: null, ranged: null, owned: [] },
+    collectedPickups: [],
   };
 }

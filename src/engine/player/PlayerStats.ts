@@ -27,6 +27,12 @@ export class PlayerStats {
     return true;
   }
 
+  /** Zera a stamina (guarda quebrada) e reinicia a espera para regenerar. */
+  drainStamina(): void {
+    this.stamina = 0;
+    this.regenCooldown = this.staminaConfig.regenDelay;
+  }
+
   takeDamage(amount: number): void {
     this.health = Math.max(0, this.health - amount);
   }

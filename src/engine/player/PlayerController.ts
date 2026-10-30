@@ -9,11 +9,16 @@ import type { PlayerStats } from "./PlayerStats";
 import type { PlayerVisual } from "./PlayerVisual";
 import type { PlayerContext } from "./states/PlayerState";
 
-/** Avisos do controlador para a câmera. */
+/** Avisos do controlador para quem está fora (câmera, HUD). */
 export interface PlayerControllerEvents {
   /** Q sem alvo à frente: câmera volta para trás do jogador (como no Zelda). */
   onRecenterRequest(yaw: number): void;
+  /** Trocou de arma (1/2). */
+  onWeaponChanged(label: string): void;
 }
+
+/** Estados em que dá para trocar de arma (não no meio de um golpe, esquiva ou queda). */
+const CAN_SWITCH_WEAPON: ReadonlySet<string> = new Set(["Idle", "Move", "Run", "Block"]);
 
 /**
  * Orquestra um quadro do jogador:
@@ -42,8 +47,10 @@ export class PlayerController {
   /** @param cameraYaw yaw da câmera: "frente" do input quando não há trava. */
   update(dt: number, cameraYaw: number): void {
     this.stats.update(dt);
+    this.ctx.viewYaw = cameraYaw;
     this.updateLock(cameraYaw);
     this.updateMoveDirection(cameraYaw);
+    this.updateWeaponSwitch();
 
     this.machine.update(dt);
     this.motor.step(dt, this.ctx.intent);
@@ -51,6 +58,13 @@ export class PlayerController {
     // Caiu para fora do mundo: volta ao ponto de renascimento atual (último checkpoint).
     if (this.motor.feetPosition.y < this.movement.fallRespawnY) this.motor.teleport(this.respawnPoint);
     this.syncVisual(dt);
+  }
+
+  private updateWeaponSwitch(): void {
+    if (!CAN_SWITCH_WEAPON.has(this.machine.current.name)) return;
+    const { input, equipment } = this.ctx;
+    const mode = input.wasPressed("weaponUnarmed") ? "unarmed" : input.wasPressed("weaponArmed") ? "armed" : null;
+    if (mode && equipment.setMode(mode)) this.events.onWeaponChanged(equipment.label);
   }
 
   private updateLock(cameraYaw: number): void {
@@ -95,6 +109,11 @@ export class PlayerController {
         grounded: this.motor.grounded,
         verticalSpeed: this.motor.verticalSpeed,
         action: this.ctx.action,
+        gear: {
+          sword: this.ctx.equipment.swordId,
+          shield: this.ctx.equipment.shieldId,
+          drawn: this.ctx.equipment.mode === "armed",
+        },
       },
       dt,
     );

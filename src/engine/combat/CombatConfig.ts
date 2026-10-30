@@ -3,8 +3,8 @@
  * Tempos em segundos, distâncias em metros, velocidades em m/s.
  */
 
-export type AttackId = "punch1" | "punch2" | "punch3" | "kick";
-export type AttackKind = "punch" | "kick";
+export type AttackId = "punch1" | "punch2" | "punch3" | "kick" | "sword1" | "sword2" | "sword3";
+export type AttackKind = "punch" | "kick" | "sword";
 
 export interface HitboxShape {
   radius: number;
@@ -38,6 +38,28 @@ export interface AttackConfig {
   chainCancelAfter: number;
   /** A partir de quanto da recuperação a esquiva pode cancelar o golpe. */
   dodgeCancelAfter: number;
+  /**
+   * Varredura da hitbox durante a janela ativa (graus): a esfera percorre um arco de
+   * +sweep/2 a -sweep/2 em torno da frente (negativo = sentido inverso). Ausente = parada.
+   */
+  sweepDeg?: number;
+}
+
+export interface BlockConfig {
+  /** Velocidade máxima andando com o escudo erguido. */
+  moveSpeed: number;
+  /** Golpes até este ângulo (graus) da frente do jogador são bloqueados. */
+  frontalHalfAngleDeg: number;
+  /** Stamina gasta por ponto de dano bloqueado (× multiplicador do escudo)... */
+  staminaPerDamage: number;
+  /** ...com este mínimo por golpe. */
+  minStaminaCost: number;
+  /** Fração do empurrão que ainda chega com o escudo. */
+  pushbackFactor: number;
+  /** Atrito do empurrão no bloqueio. */
+  pushbackDrag: number;
+  /** Sem stamina para segurar o golpe: guarda quebra e o jogador fica atordoado. */
+  guardBreakStun: number;
 }
 
 export interface DodgeConfig {
@@ -99,7 +121,11 @@ export interface PlayerDeathConfig {
 
 export interface CombatConfig {
   attacks: Record<AttackId, AttackConfig>;
+  /** Primeiro golpe do combo de punhos. */
   comboStarter: AttackId;
+  /** Primeiro golpe do combo de espada. */
+  swordComboStarter: AttackId;
+  block: BlockConfig;
   kick: AttackId;
   dodge: DodgeConfig;
   stamina: StaminaConfig;
@@ -114,6 +140,7 @@ export interface CombatConfig {
 }
 
 const PUNCH_HITBOX: HitboxShape = { radius: 0.45, reach: 0.75, height: 1.25 };
+const SWORD_HITBOX: HitboxShape = { radius: 0.55, reach: 1.15, height: 1.15 };
 
 export const DEFAULT_COMBAT_CONFIG: CombatConfig = {
   attacks: {
@@ -181,8 +208,69 @@ export const DEFAULT_COMBAT_CONFIG: CombatConfig = {
       chainCancelAfter: 0,
       dodgeCancelAfter: 0.2,
     },
+    // Espada: mais alcance e dano que os punhos; a lâmina varre um arco.
+    sword1: {
+      kind: "sword",
+      windup: 0.1,
+      active: 0.1,
+      recovery: 0.32,
+      damage: 14,
+      knockback: 2,
+      targetHitStun: 0.32,
+      lungeSpeed: 3,
+      hitbox: SWORD_HITBOX,
+      heavy: false,
+      next: "sword2",
+      chainInputWindow: 0.32,
+      chainCancelAfter: 0.07,
+      dodgeCancelAfter: 0.05,
+      sweepDeg: 110,
+    },
+    sword2: {
+      kind: "sword",
+      windup: 0.09,
+      active: 0.1,
+      recovery: 0.32,
+      damage: 15,
+      knockback: 2,
+      targetHitStun: 0.32,
+      lungeSpeed: 3,
+      hitbox: SWORD_HITBOX,
+      heavy: false,
+      next: "sword3",
+      chainInputWindow: 0.32,
+      chainCancelAfter: 0.07,
+      dodgeCancelAfter: 0.05,
+      sweepDeg: -110,
+    },
+    sword3: {
+      kind: "sword",
+      windup: 0.2,
+      active: 0.12,
+      recovery: 0.5,
+      damage: 26,
+      knockback: 6.5,
+      targetHitStun: 0.5,
+      lungeSpeed: 4,
+      hitbox: { radius: 0.65, reach: 1.2, height: 1.0 },
+      heavy: true,
+      next: null,
+      chainInputWindow: 0,
+      chainCancelAfter: 0,
+      dodgeCancelAfter: 0.18,
+    },
   },
   comboStarter: "punch1",
+  swordComboStarter: "sword1",
+  block: {
+    moveSpeed: 2.2,
+    frontalHalfAngleDeg: 70,
+    staminaPerDamage: 1.5,
+    minStaminaCost: 10,
+    pushbackFactor: 0.35,
+    pushbackDrag: 10,
+    guardBreakStun: 0.8,
+  },
   kick: "kick",
   dodge: {
     duration: 0.38,

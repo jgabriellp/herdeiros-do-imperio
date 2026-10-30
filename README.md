@@ -35,7 +35,9 @@ Clique no jogo para capturar o mouse; Esc solta.
 | Espaço                | Pular                                                      |
 | Mouse                 | Girar a câmera                                             |
 | Roda do mouse         | Aproximar/afastar a câmera                                 |
-| Botão esquerdo        | Soco; clique de novo no ritmo para um combo de 3           |
+| Botão esquerdo        | Golpe (soco ou espada); clique de novo no ritmo para um combo de 3 |
+| Botão direito (segurar) | Bloquear com o escudo (golpes de frente, gasta stamina)  |
+| 1 / 2                 | Trocar para punhos / para a arma (espada e escudo)         |
 | F                     | Chute (mais lento, mais dano, empurra)                     |
 | C                     | Esquiva (breve invulnerabilidade, gasta stamina)           |
 | Q / botão do meio     | Travar/destravar a mira no inimigo à frente; sem alvo, recentraliza a câmera |
@@ -58,14 +60,16 @@ No console, `herdeiros.switchEpisode("s01e01")` troca de episódio sem recarrega
 
 ## O que o sandbox testa
 
-1. Ande até a arena: passar pelo disco azul salva o checkpoint ("Checkpoint salvo").
-2. Os três vândalos (fraco, rápido e bruto) atacam; no máximo dois por vez, os outros rondam.
-   Antes de cada golpe a clava brilha em amarelo: hora de esquivar.
-3. Se a vida acabar, você renasce no último checkpoint.
-4. Derrote todos: aparece "Episódio concluído", o episódio fica marcado no save e o evento
+1. Atrás do ponto inicial, à esquerda, há dois pedestais: pegue a espada e o escudo.
+2. Ande até a arena: passar pelo disco azul salva o checkpoint ("Checkpoint salvo").
+3. Os três vândalos (fraco, rápido e bruto) atacam; no máximo dois por vez, os outros rondam.
+   Antes de cada golpe a clava brilha em amarelo: hora de esquivar ou erguer o escudo.
+4. Se a vida acabar, você renasce no último checkpoint.
+5. Derrote todos: aparece "Episódio concluído", o episódio fica marcado no save e o evento
    `episodeCompleted` é emitido.
 
-Para recomeçar do zero, apague a chave `herdeiros-do-imperio:save` do localStorage.
+Para recomeçar do zero (inclusive os itens dos pedestais), apague a chave
+`herdeiros-do-imperio:save` do localStorage.
 
 ## Estrutura de pastas
 
@@ -80,6 +84,7 @@ src/
     player/               Player, máquina de estados (states/), câmera em 3ª pessoa, visual da cápsula
     combat/               CombatConfig (todos os números), Hitbox, DamageSystem, TargetLock
     enemies/              Enemy, IA (states/), AttackCoordinator, EnemyFactory, EnemyConfig (tipos)
+    items/                ItemConfig (catálogo de itens), itens no mapa (PickupSystem)
     progress/             checkpoints, morte/renascimento, conclusão do episódio
     vfx/                  hit stop, partículas de impacto, tremida de câmera
     ui/                   HUD (Babylon GUI), barras dos inimigos, marcador da mira, mensagens
@@ -130,7 +135,11 @@ A arquitetura completa e as decisões do projeto estão no [CLAUDE.md](CLAUDE.md
    - `lighting`: direção e intensidade do sol, intensidade da luz ambiente;
    - `obstacles`: cada um é `box` (com `size`) ou `cylinder` (com `diameter` e `height`).
      `position` é o **centro** do objeto, `rotationY` é opcional (só em `box`), `mass > 0`
-     o torna dinâmico (cai e pode ser empurrado) e cores são `"#rrggbb"`.
+     o torna dinâmico (cai e pode ser empurrado) e cores são `"#rrggbb"`;
+   - `pickups` (opcional): itens no mapa, ex.:
+     `{ "id": "pedestal_espada", "item": "espada_simples", "position": { "x": -3, "y": 0.8, "z": -4 } }`.
+     `position` é a base do item; o `id` precisa ser único no episódio (o save lembra o que já foi
+     pego). Itens disponíveis em `src/engine/items/ItemConfig.ts`: `espada_simples`, `escudo_madeira`.
 4. Crie o `encounters.json`:
    ```json
    {

@@ -1,4 +1,4 @@
-export const SAVE_FORMAT_VERSION = 1;
+export const SAVE_FORMAT_VERSION = 2;
 
 export type StoryFlagValue = boolean | number | string;
 
@@ -7,7 +7,7 @@ export interface PlayerAttributes {
   maxStamina: number;
 }
 
-/** Ids de itens equipados (null = slot vazio). */
+/** Ids de itens equipados (null = slot vazio). `owned` é o inventário. */
 export interface EquipmentData {
   mainHand: string | null;
   offHand: string | null;
@@ -28,6 +28,11 @@ export interface SaveData {
   storyFlags: Record<string, StoryFlagValue>;
   player: PlayerAttributes;
   equipment: EquipmentData;
+  /**
+   * Itens do mapa já recolhidos, como "episodeId/pickupId" (ex.: "s00e00/pedestal_espada").
+   * Evita que reapareçam ao recarregar. (Adicionado na versão 2 do formato.)
+   */
+  collectedPickups: string[];
 }
 
 /**

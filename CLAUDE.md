@@ -21,6 +21,11 @@ antigos companheiros, descobre que um grande amigo foi sequestrado e volta à gu
 cativeiro, descobre que o filho que julgava morto na primeira guerra está vivo. A temporada
 termina com o herói derrotando o antigo imperador e adotando o filho recém-nascido dele.
 
+**Equipamento na história**: o herói abandonou a vida de batalhas e não guardou nada da antiga
+armadura. Um amigo (que também vive numa terra recebida de presente) guardou o equipamento para
+ele; quando a jornada começar, o herói vai buscá-lo com esse amigo (entrega por NPC/diálogo).
+Ao longo da jornada ele acumula armas e equipamentos espalhados pelo mapa no inventário.
+
 ## Stack
 Babylon.js 9 (core, loaders, gui, inspector), Havok (`@babylonjs/havok`), TypeScript strict
 (TS 7), Vite 8. Sem React/frameworks de UI. **Não adicionar bibliotecas sem perguntar ao
@@ -48,14 +53,15 @@ src/engine/world/        montagem de fase: ProceduralLevelBuilder, SkyDome, Leve
 src/engine/save/         SaveManager, LocalSaveProvider, migrateSave, defaultSave
 src/engine/character/    CharacterMotor (física de personagem: jogador E inimigos), CharacterConfig
 src/engine/player/       Player (montagem + alvo de combate), PlayerController (orquestra o quadro),
-                         PlayerStateMachine + states/ (Idle, Move, Run, Jump, Attack, HitStun, Dodge),
-                         PlayerStats, PlayerVisual (interface) + CapsuleVisual, ThirdPersonCamera, configs
+                         PlayerStateMachine + states/ (Idle, Move, Run, Jump, Attack, HitStun, Dodge,
+                         Block, Dead), PlayerStats, PlayerEquipment (armas na mão + entrega de itens), PlayerVisual (interface) + CapsuleVisual, ThirdPersonCamera, configs
 src/engine/combat/       CombatConfig (TODOS os números do combate), CombatTypes (CombatTarget, HitInfo),
                          Hitbox, DamageSystem, TargetLock, HitboxDebugView
 src/engine/enemies/      Enemy, EnemyStateMachine + states/ (Idle, Chase, Attack, HitStun, Dead),
                          AttackCoordinator (fichas de ataque), EnemyVisual, EnemyFactory, EnemyManager,
                          EnemyConfig (tipos, IA, golpe, regras do grupo)
 src/engine/progress/     CheckpointSystem, RespawnSystem, EpisodeCompletion
+src/engine/items/        ItemConfig (catálogo de itens), ItemMeshes (formas provisórias), PickupSystem
 src/engine/ui/           Hud e EnemyHealthBars (Babylon GUI), TargetMarker (3D),
                          MessageOverlay, ControlsHint, DevStatsPanel (DOM)
 src/engine/vfx/          HitStop, ImpactParticles, CameraShake, ImpactFeedback (liga tudo ao onHit)
@@ -201,6 +207,30 @@ public/episodes/catalog.json   id → pasta; lido SÓ pelo main.ts
 - Pasta nova `engine/progress/` para as regras de progresso (não são combate nem carregamento).
 - F6 (dev) derrota todos os inimigos para testar a conclusão.
 
+### Decisões registradas (Tarefa 6)
+- **Bloqueio no botão direito** (segurado); **parry fica para depois** (decisões do usuário).
+- **Itens**: catálogo em `items/ItemConfig.ts` (como os tipos de inimigo). Episódios referenciam
+  pelo id. `PlayerEquipment.grant(itemId)` é o **único** caminho para dar um item ao jogador:
+  entra no inventário (`equipment.owned`) e é equipado se o slot estiver vazio (a 1ª arma já é
+  empunhada). Hoje usado pelos pickups; na Tarefa 10, pelo amigo/NPCs nos diálogos.
+- **Pickups**: lista opcional `pickups` no `level.json` (`id`, `item`, `position` da base).
+  Passar a até 1,4 m pega (folga para itens sobre pedestais sólidos). Pegos ficam em
+  `save.collectedPickups` como `"episodeId/pickupId"` e não reaparecem. Item desconhecido =
+  erro `INVALID_EPISODE`. No sandbox: pedestais atrás do início, fora do alcance dos inimigos.
+- **Save v2**: adicionou `collectedPickups`. Primeira migração real (v1 → v2), testada com um
+  save v1 antigo: progresso preservado.
+- **Troca de arma**: 1 = punhos, 2 = arma (espada e/ou escudo). Só em Idle/Move/Run/Block.
+  Guardadas, espada e escudo aparecem nas costas.
+- **Espada**: combo próprio (`sword1-3` em `CombatConfig`, inicia por `swordComboStarter`); dano
+  × `damageMultiplier` da espada. Cortes 1 e 2 varrem a hitbox num arco de 110° (`sweepDeg`,
+  sentidos opostos); o 3º é de cima para baixo (golpe forte).
+- **Bloqueio** (estado `Block`): anda a 2,2 m/s encarando o alvo travado ou para onde a câmera
+  olha. Golpe a até 70° da frente = sem dano, gasta `max(10, dano × 1,5 × escudo)` de stamina,
+  empurrão reduzido (35%), faíscas azuis. Sem stamina: **guarda quebrada** (sem dano, atordoado
+  0,8 s). Inimigo cujo golpe é bloqueado recua (`blockedRecoil` no tipo). Golpes pelos lados/costas
+  passam. Novos resultados de golpe: `blocked` e `guardBreak`.
+- Botão direito não abre o menu do navegador (`contextmenu` bloqueado no canvas).
+
 ## Convenções
 - Classes pequenas, responsabilidade única. Comentários em português nas partes não óbvias.
 - Toda lógica de movimento usa deltaTime em segundos (`GameLoop.add(dt => ...)`). Suavizações
@@ -234,10 +264,32 @@ public/episodes/catalog.json   id → pasta; lido SÓ pelo main.ts
   passar, morte e renascimento no último checkpoint, conclusão do episódio (save + evento +
   mensagem). Ciclo carregar → jogar → salvar → avisar validado no sandbox.
 
-**Fundação concluída.** Próximo passo depende do usuário (ver "Próximas fases").
+**Fundação concluída.** As próximas tarefas estão abaixo, na ordem proposta. Nenhuma começa
+sem aprovação do usuário; a ordem pode mudar se ele pedir.
 
-## Próximas fases (não implementar sem pedido; apenas não bloquear)
-Espada e escudo com bloqueio, arco com mira por cima do ombro, troca de armas, modelos e
-animações Mixamo com blend, diálogos com inkjs lendo/escrevendo flags do save, NPCs e
-companheiros, cenários .glb CC0, menu principal e seleção de episódio, conteúdo do s01e01.
-Plataforma web e pagamentos ficam para muito depois.
+## Próximas tarefas (roteiro proposto)
+- [x] **Tarefa 6 — Espada, escudo, bloqueio e troca de armas**: equipamento e inventário no
+  save (v2), itens no mapa (`pickups`), troca 1/2, combo de espada com varredura, bloqueio no
+  botão direito com custo de stamina, guarda quebrada e recuo do inimigo, visual da espada e do
+  escudo (mão/costas/erguido), arma na HUD. Parry fica para depois.
+- [ ] **Tarefa 7 — Arco com mira por cima do ombro**: câmera de mira deslocada para o ombro,
+  retícula, flechas como projéteis com gravidade, munição no save, reaproveitando
+  equipamento e troca de armas da Tarefa 6.
+- [ ] **Tarefa 8 — Modelos e animações Mixamo**: `PlayerVisual` (e o visual dos inimigos)
+  carregando .glb com blend de animações (parado, andar, correr, pular, golpes, esquiva,
+  atordoado, morte) a partir do `PlayerVisualState`. **Depende do usuário** baixar os .glb do
+  Mixamo (conta Adobe); a lista exata de animações será passada antes.
+- [ ] **Tarefa 9 — Menu principal, seleção de episódio e inventário**: tela inicial, lista de
+  episódios do catálogo, episódios concluídos vindos do save e verificação de `requires` feita
+  pelo lançador (nunca pelo motor); tela de inventário para escolher qual arma/escudo equipar
+  quando houver mais de um.
+- [ ] **Tarefa 10 — Diálogos, NPCs e companheiros**: diálogos em ink lendo e escrevendo as
+  flags de história do save; NPCs e companheiros caricatos; NPC entregando itens via
+  `PlayerEquipment.grant` (o amigo que guardou o equipamento do herói). **Depende de autorização** para
+  adicionar a biblioteca `inkjs`.
+- [ ] **Tarefa 11 — Cenários .glb com assets CC0**: novo tipo de fase `"glb"` no `level` do
+  manifesto (novo `case` no `EpisodeLoader` + construtor em `world/`), com colisores.
+- [ ] **Tarefa 12 — Conteúdo do s01e01 "Vândalos na Colheita"**: a fazenda, a colheita, os
+  vândalos e as primeiras escolhas gravadas em flags de história.
+
+Fora do escopo por enquanto: plataforma web (login, catálogo, save na nuvem) e pagamentos.

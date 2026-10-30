@@ -82,6 +82,25 @@ export class SaveManager {
     });
   }
 
+  ownsItem(itemId: string): boolean {
+    return this.data.equipment.owned.includes(itemId);
+  }
+
+  /** Coloca um item no inventário (sem equipar). */
+  addOwnedItem(itemId: string): void {
+    if (this.ownsItem(itemId)) return;
+    this.mutate((d) => d.equipment.owned.push(itemId));
+  }
+
+  hasCollectedPickup(key: string): boolean {
+    return this.data.collectedPickups.includes(key);
+  }
+
+  markPickupCollected(key: string): void {
+    if (this.hasCollectedPickup(key)) return;
+    this.mutate((d) => d.collectedPickups.push(key));
+  }
+
   setPlayerAttributes(attrs: Partial<PlayerAttributes>): void {
     this.mutate((d) => Object.assign(d.player, attrs));
   }

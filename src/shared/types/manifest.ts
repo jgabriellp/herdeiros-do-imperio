@@ -70,6 +70,16 @@ export interface CylinderObstacleDef {
 
 export type ObstacleDef = BoxObstacleDef | CylinderObstacleDef;
 
+/** Item colocado no mapa; o jogador pega passando por cima. */
+export interface PickupDef {
+  /** Único no episódio; usado para lembrar no save que já foi pego. */
+  id: string;
+  /** Id de um item conhecido pelo motor (ex.: "espada_simples"). */
+  item: string;
+  /** Base do item (onde ele "pousa"). */
+  position: Vec3Data;
+}
+
 export interface ProceduralLevelData {
   formatVersion: 1;
   ground: { width: number; depth: number; color: HexColor };
@@ -81,6 +91,7 @@ export interface ProceduralLevelData {
     ambientIntensity: number;
   };
   obstacles: ObstacleDef[];
+  pickups?: PickupDef[];
 }
 
 // ---------- encounters.json ----------

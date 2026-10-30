@@ -1,11 +1,13 @@
 import type { Scene, ShadowGenerator } from "@babylonjs/core";
-import type { EncountersData, EpisodeManifest, PlayerAttributes, Vec3Data } from "../../shared/types";
+import type { EncountersData, EpisodeManifest, PickupDef, PlayerAttributes, Vec3Data } from "../../shared/types";
 import { DEFAULT_COMBAT_CONFIG } from "../combat/CombatConfig";
 import { DamageSystem } from "../combat/DamageSystem";
 import { HitboxDebugView } from "../combat/HitboxDebugView";
 import { EnemyManager } from "../enemies/EnemyManager";
+import { PickupSystem } from "../items/PickupSystem";
 import { DEFAULT_CAMERA_CONFIG } from "../player/CameraConfig";
 import { Player } from "../player/Player";
+import { PlayerEquipment } from "../player/PlayerEquipment";
 import { ThirdPersonCamera } from "../player/ThirdPersonCamera";
 import { CheckpointSystem } from "../progress/CheckpointSystem";
 import { EpisodeCompletion } from "../progress/EpisodeCompletion";
@@ -32,7 +34,8 @@ import { KeyboardMouseSource } from "./input/KeyboardMouseSource";
 const CONTROLS_HINT = [
   "Clique para jogar",
   "WASD mover · Shift correr · Espaço pular · Mouse câmera · Roda zoom",
-  "Clique soco (combo x3) · F chute · C esquiva · Q / botão do meio travar mira · Esc soltar o mouse",
+  "Clique golpe (combo x3) · F chute · C esquiva · Botão direito bloquear (com escudo) · 1/2 trocar arma",
+  "Q / botão do meio travar mira · Esc soltar o mouse",
 ];
 
 export interface GameplayDeps {
@@ -46,6 +49,8 @@ export interface GameplayDeps {
   spawn: Vec3Data;
   playerAttributes: PlayerAttributes;
   encounters: EncountersData;
+  /** Itens do mapa (level.json). */
+  pickups: readonly PickupDef[];
   save: SaveManager;
   events: GameEvents;
   devMode: boolean;
@@ -70,6 +75,9 @@ export function createGameplay(deps: GameplayDeps): void {
   const hud = new Hud(scene, combat.dodge.staminaCost);
   disposables.add("hud", () => hud.dispose());
 
+  // Equipamento vem do save; é por ele que o jogador recebe itens (mapa hoje, NPCs depois).
+  const equipment = new PlayerEquipment(deps.save);
+
   // Criados depois do jogador, mas usados pelos callbacks dele.
   let camera: ThirdPersonCamera | null = null;
   let respawn: RespawnSystem | null = null;
@@ -79,9 +87,13 @@ export function createGameplay(deps: GameplayDeps): void {
     damage,
     combat,
     attributes: deps.playerAttributes,
+    equipment,
     spawn: deps.spawn,
     shadows: deps.shadows,
-    events: { onRecenterRequest: (yaw) => camera?.recenter(yaw) },
+    events: {
+      onRecenterRequest: (yaw) => camera?.recenter(yaw),
+      onWeaponChanged: (label) => hud.notify(label, 1.2),
+    },
     onDied: () => respawn?.playerDied(),
   });
   disposables.add("player", () => player.dispose());
@@ -131,6 +143,13 @@ export function createGameplay(deps: GameplayDeps): void {
     },
   });
 
+  const pickups = new PickupSystem(scene, manifest.id, deps.pickups, deps.save, (itemId) => {
+    const result = equipment.grant(itemId);
+    if (!result) return;
+    hud.notify(result.equipped ? `Você pegou: ${result.item.name}` : `${result.item.name} foi para o inventário`, 3);
+  });
+  disposables.add("pickups", () => pickups.dispose());
+
   const completion = new EpisodeCompletion(manifest.id, deps.save, deps.events, () =>
     hud.announce("Episódio concluído", manifest.title, 6),
   );
@@ -150,6 +169,7 @@ export function createGameplay(deps: GameplayDeps): void {
     loop.add((dt) => player.update(dt, cam.yaw), "update"),
     loop.add((dt) => enemies.update(dt), "update"),
     loop.add((dt) => {
+      if (player.isAlive) pickups.update(dt, player.feetPosition);
       checkpoints.update(player.feetPosition, player.isAlive);
       respawn?.update(dt);
       completion.update(enemies.spawnedCount, enemies.aliveCount);
@@ -160,6 +180,7 @@ export function createGameplay(deps: GameplayDeps): void {
       player.fadeForCamera(cam.distance, DEFAULT_CAMERA_CONFIG.fadeStartDistance, DEFAULT_CAMERA_CONFIG.fadeEndDistance);
       marker.update(dt, player.lock.target);
       enemyBars.update(enemies.all);
+      hud.setWeapon(equipment.label, equipment.hasAnyWeapon);
       hud.update(dt, player.stats);
     }, "late"),
   ];
@@ -220,6 +241,7 @@ function createDevTools(deps: GameplayDeps, player: Player, enemies: EnemyManage
         `vida:    ${stats.health.toFixed(0)} / ${stats.maxHealth}`,
         `stamina: ${stats.stamina.toFixed(0)} / ${stats.maxStamina}`,
         `invuln.: ${player.isInvulnerable ? "sim" : "não"}`,
+        `arma:    ${player.equipment.label} (${player.equipment.mode})`,
         `alvo:    ${lock.target ? `${lock.target.id}` : "-"}`,
         `inimigos vivos: ${enemies.aliveCount} · atacando: ${enemies.coordinator.activeAttackers}`,
         ...enemies.all.map((e) => `  ${e.id}: ${e.currentHealth.toFixed(0)}/${e.stats.health} ${e.stateLabel}`),

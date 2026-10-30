@@ -20,6 +20,8 @@ export interface EnemyAttackConfig {
   /** Intervalo aleatório entre ataques do mesmo inimigo. */
   cooldownMin: number;
   cooldownMax: number;
+  /** Recuo quando o golpe bate no escudo do jogador. */
+  blockedRecoil: { knockback: number; hitStun: number };
 }
 
 export interface EnemyAiConfig {
@@ -109,6 +111,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
       hitbox: { radius: 0.55, reach: 0.95, height: 1.1 },
       cooldownMin: 1.2,
       cooldownMax: 2.4,
+      blockedRecoil: { knockback: 3, hitStun: 0.45 },
     },
   },
 };

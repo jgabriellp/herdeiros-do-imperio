@@ -9,9 +9,12 @@ type RawSave = Record<string, unknown>;
 
 /**
  * Migrações em sequência: MIGRATIONS[n] converte um save da versão n para n+1.
- * Ao criar a versão 2 do formato: SAVE_FORMAT_VERSION = 2 e adicionar MIGRATIONS[1].
+ * Nova versão do formato = incrementar SAVE_FORMAT_VERSION e adicionar a migração aqui.
  */
-const MIGRATIONS: Record<number, (save: RawSave) => RawSave> = {};
+const MIGRATIONS: Record<number, (save: RawSave) => RawSave> = {
+  // v1 → v2: passa a registrar os itens do mapa já recolhidos.
+  1: (save) => ({ ...save, formatVersion: 2, collectedPickups: [] }),
+};
 
 export function migrateSave(raw: unknown): MigrationResult {
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
@@ -64,6 +67,7 @@ function sanitize(save: RawSave): SaveData {
       ranged: stringOrNull(equipment["ranged"]),
       owned: stringArray(equipment["owned"]),
     },
+    collectedPickups: stringArray(save["collectedPickups"]),
   };
 }
 

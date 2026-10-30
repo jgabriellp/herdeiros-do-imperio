@@ -1,4 +1,5 @@
 import type { AttackConfig, AttackId } from "../../combat/CombatConfig";
+import type { HitSpec } from "../../combat/DamageSystem";
 import { yawFromDirection } from "../../core/mathUtils";
 import type { AttackPhase } from "../PlayerVisual";
 import { MOVE_DEADZONE } from "./LocomotionStates";
@@ -16,6 +17,8 @@ export class AttackState extends PlayerState<"Attack"> {
   private comboIndex = 0;
   private nextQueued = false;
   private readonly lunge = { x: 0, z: 0 };
+  /** Dano já com o multiplicador da arma; calculado uma vez por golpe. */
+  private readonly hitSpec: HitSpec = { damage: 0, knockback: 0, targetHitStun: 0, heavy: false };
 
   override enter(params: PlayerStateParams["Attack"]): void {
     super.enter(params);
@@ -24,6 +27,12 @@ export class AttackState extends PlayerState<"Attack"> {
     this.comboIndex = params.comboIndex;
     this.nextQueued = false;
     this.ctx.hitbox.deactivate();
+
+    const sword = this.attack.kind === "sword" ? this.ctx.equipment.sword : null;
+    this.hitSpec.damage = this.attack.damage * (sword?.damageMultiplier ?? 1);
+    this.hitSpec.knockback = this.attack.knockback;
+    this.hitSpec.targetHitStun = this.attack.targetHitStun;
+    this.hitSpec.heavy = this.attack.heavy;
 
     // Mira o golpe: alvo travado > direção do input > frente atual.
     const { moveDir, motor } = this.ctx;
@@ -67,8 +76,11 @@ export class AttackState extends PlayerState<"Attack"> {
     if (phase === "active") {
       if (!hitbox.isActive) hitbox.activate();
       const feet = motor.feetPosition;
-      hitbox.place(feet, motor.facingYaw, a.hitbox);
-      this.ctx.damage.resolve(hitbox, "player", feet.x, feet.z, a);
+      // Golpes com varredura (espada): a esfera percorre o arco da lâmina.
+      const activeProgress = a.active > 0 ? (t - activeStart) / a.active : 1;
+      const sweep = a.sweepDeg ? ((a.sweepDeg * Math.PI) / 180) * (0.5 - activeProgress) : 0;
+      hitbox.place(feet, motor.facingYaw + sweep, a.hitbox);
+      this.ctx.damage.resolve(hitbox, "player", feet.x, feet.z, this.hitSpec);
     } else if (hitbox.isActive) {
       hitbox.deactivate();
     }

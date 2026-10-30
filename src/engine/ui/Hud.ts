@@ -98,6 +98,7 @@ export class Hud {
   private readonly health: Bar;
   private readonly stamina: Bar;
   private readonly healthText: TextBlock;
+  private readonly weaponText: TextBlock;
   private readonly title: FadingText;
   private readonly subtitle: FadingText;
   private readonly toast: FadingText;
@@ -118,7 +119,8 @@ export class Hud {
     // Barras no canto superior esquerdo.
     const bars = new StackPanel("hudBars");
     bars.isVertical = true;
-    bars.width = "280px";
+    // Largo o bastante para o nome das armas; as barras têm largura própria.
+    bars.width = "560px";
     bars.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
     bars.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
     bars.left = "24px";
@@ -137,6 +139,16 @@ export class Hud {
     this.stamina = new Bar("stamina", 200, 10, STAMINA_COLOR);
     bars.addControl(this.stamina.root);
 
+    this.weaponText = new TextBlock("weaponText", "");
+    this.weaponText.fontFamily = FONT;
+    this.weaponText.fontSize = 15;
+    this.weaponText.color = PARCHMENT;
+    this.weaponText.outlineWidth = 3;
+    this.weaponText.outlineColor = "#000000";
+    this.weaponText.height = "22px";
+    this.weaponText.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
+    bars.addControl(this.weaponText);
+
     // Mensagens centrais.
     const center = new StackPanel("hudCenter");
     center.isVertical = true;
@@ -153,6 +165,12 @@ export class Hud {
     this.toast.block.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
     this.toast.block.top = "70px";
     this.ui.addControl(this.toast.block);
+  }
+
+  /** Arma na mão (e atalhos de troca, se houver o que trocar). */
+  setWeapon(label: string, canSwitch: boolean): void {
+    const text = canSwitch ? `${label}   [1] Punhos  [2] Arma` : label;
+    if (this.weaponText.text !== text) this.weaponText.text = text;
   }
 
   /** Mensagem grande no centro por alguns segundos. */

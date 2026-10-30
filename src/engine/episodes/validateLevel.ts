@@ -1,4 +1,4 @@
-import type { ObstacleDef, ProceduralLevelData } from "../../shared/types";
+import type { ObstacleDef, PickupDef, ProceduralLevelData } from "../../shared/types";
 import { Checker } from "./Checker";
 import { EpisodeValidationError } from "./EpisodeErrors";
 
@@ -35,6 +35,16 @@ export function validateProceduralLevel(raw: unknown, file: string): ProceduralL
     obstacles: c.array(root, "obstacles", p, (v, ip) => readObstacle(c, v, ip)),
   };
 
+  const pickups = c.optArray(root, "pickups", p, (v, ip) => readPickup(c, v, ip));
+  if (pickups !== undefined) {
+    level.pickups = pickups;
+    const seen = new Set<string>();
+    for (const pk of pickups) {
+      if (pk.id && seen.has(pk.id)) c.fail(`${p}.pickups`, `id de item repetido "${pk.id}"`);
+      seen.add(pk.id);
+    }
+  }
+
   const sun = level.lighting.sunDirection;
   if (sun.x === 0 && sun.y === 0 && sun.z === 0) {
     c.fail(`${p}.lighting.sunDirection`, "não pode ser (0, 0, 0)");
@@ -42,6 +52,11 @@ export function validateProceduralLevel(raw: unknown, file: string): ProceduralL
 
   if (c.errors.length > 0) throw new EpisodeValidationError(file, c.errors);
   return level;
+}
+
+function readPickup(c: Checker, value: unknown, path: string): PickupDef {
+  const o = c.object(value, path);
+  return { id: c.str(o, "id", path), item: c.str(o, "item", path), position: c.vec3(o, "position", path) };
 }
 
 function readObstacle(c: Checker, value: unknown, path: string): ObstacleDef {

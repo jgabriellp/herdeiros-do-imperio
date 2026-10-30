@@ -6,10 +6,11 @@ import type { DamageSystem } from "../../combat/DamageSystem";
 import type { Hitbox } from "../../combat/Hitbox";
 import type { TargetLock } from "../../combat/TargetLock";
 import type { InputManager } from "../../core/input/InputManager";
+import type { PlayerEquipment } from "../PlayerEquipment";
 import type { PlayerStats } from "../PlayerStats";
 import type { VisualAction } from "../PlayerVisual";
 
-export type PlayerStateName = "Idle" | "Move" | "Run" | "Jump" | "Attack" | "HitStun" | "Dodge" | "Dead";
+export type PlayerStateName = "Idle" | "Move" | "Run" | "Jump" | "Attack" | "HitStun" | "Dodge" | "Block" | "Dead";
 
 /** Parâmetros de entrada de cada estado (void = nenhum). */
 export interface PlayerStateParams {
@@ -21,6 +22,7 @@ export interface PlayerStateParams {
   Attack: { attack: AttackId; comboIndex: number };
   HitStun: { hit: HitInfo };
   Dodge: void;
+  Block: void;
   Dead: void;
 }
 
@@ -34,6 +36,9 @@ export interface PlayerContext {
   readonly damage: DamageSystem;
   readonly hitbox: Hitbox;
   readonly lock: TargetLock;
+  readonly equipment: PlayerEquipment;
+  /** Yaw da câmera neste quadro (para onde o jogador está olhando). */
+  viewYaw: number;
   /** Direção desejada no mundo (relativa à câmera, ou ao alvo se travado), comprimento 0..1. */
   readonly moveDir: { x: number; z: number };
   /** Intenção de movimento preenchida pelo estado a cada quadro. */
@@ -42,6 +47,8 @@ export interface PlayerContext {
   action: VisualAction | null;
   /** Yaw do jogador para o alvo travado, ou null se não houver trava. */
   lockYaw(): number | null;
+  /** Primeiro golpe do combo conforme a arma na mão (punhos ou espada). */
+  comboStarter(): AttackId;
 }
 
 /** Contrato mínimo da máquina visto pelos estados (evita import circular). */

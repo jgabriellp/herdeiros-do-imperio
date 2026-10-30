@@ -11,6 +11,7 @@ import type { InputManager } from "../core/input/InputManager";
 import { CapsuleVisual } from "./CapsuleVisual";
 import { DEFAULT_CAPSULE_CONFIG, DEFAULT_MOVEMENT_CONFIG } from "./PlayerConfig";
 import { PlayerController, yawTowards, type PlayerControllerEvents } from "./PlayerController";
+import type { PlayerEquipment } from "./PlayerEquipment";
 import { PlayerStateMachine } from "./PlayerStateMachine";
 import { PlayerStats } from "./PlayerStats";
 import type { PlayerVisual } from "./PlayerVisual";
@@ -22,6 +23,7 @@ export interface PlayerDeps {
   damage: DamageSystem;
   combat: CombatConfig;
   attributes: PlayerAttributes;
+  equipment: PlayerEquipment;
   spawn: Vec3Data;
   shadows: ShadowGenerator | null;
   events: PlayerControllerEvents;
@@ -47,6 +49,7 @@ export class Player implements CombatTarget {
   readonly hitbox = new Hitbox();
   readonly machine: PlayerStateMachine;
   readonly controller: PlayerController;
+  readonly equipment: PlayerEquipment;
   private readonly damage: DamageSystem;
   private readonly combat: CombatConfig;
   private postHitTimer = 0;
@@ -57,9 +60,10 @@ export class Player implements CombatTarget {
     this.damage = deps.damage;
     this.combat = deps.combat;
     this.onDied = deps.onDied;
+    this.equipment = deps.equipment;
     this.motor = new CharacterMotor(deps.scene, deps.spawn, shape, DEFAULT_MOVEMENT_CONFIG, CollisionLayers.PLAYER);
     // Trocar por um visual .glb (Mixamo) = trocar só esta linha.
-    this.visual = new CapsuleVisual(deps.scene, shape.height, shape.radius);
+    this.visual = new CapsuleVisual(deps.scene, shape.height, shape.radius, deps.shadows);
     this.stats = new PlayerStats(deps.attributes.maxHealth, deps.attributes.maxStamina, deps.combat.stamina);
     this.lock = new TargetLock(deps.combat.lock, () => deps.damage.aliveTargets("enemy"));
 
@@ -74,6 +78,8 @@ export class Player implements CombatTarget {
       damage: deps.damage,
       hitbox: this.hitbox,
       lock,
+      equipment: deps.equipment,
+      viewYaw: 0,
       moveDir: { x: 0, z: 0 },
       intent: createMoveIntent(),
       action: null,
@@ -82,6 +88,9 @@ export class Player implements CombatTarget {
         if (!t) return null;
         const feet = motor.feetPosition;
         return yawTowards(feet.x, feet.z, t.feetPosition.x, t.feetPosition.z);
+      },
+      comboStarter() {
+        return deps.equipment.swordDrawn ? deps.combat.swordComboStarter : deps.combat.comboStarter;
       },
     };
     this.machine = new PlayerStateMachine(ctx);
@@ -122,6 +131,10 @@ export class Player implements CombatTarget {
 
   receiveHit(hit: HitInfo): HitOutcome {
     if (!this.isAlive || this.isInvulnerable) return "ignored";
+
+    const block = this.machine.blockState;
+    if (this.machine.current === block && block.coversHit(hit)) return this.blockHit(hit);
+
     this.stats.takeDamage(hit.damage);
     if (!this.stats.isAlive) {
       this.lock.release();
@@ -132,6 +145,24 @@ export class Player implements CombatTarget {
     this.postHitTimer = this.combat.playerHitReaction.postHitInvulnerability;
     this.machine.change("HitStun", { hit });
     return "hit";
+  }
+
+  /**
+   * Golpe frontal com o escudo erguido: gasta stamina proporcional ao dano.
+   * Sem stamina suficiente, a guarda quebra (sem dano, mas atordoado por mais tempo).
+   */
+  private blockHit(hit: HitInfo): HitOutcome {
+    const cfg = this.combat.block;
+    const multiplier = this.equipment.shield?.blockCostMultiplier ?? 1;
+    const cost = Math.max(cfg.minStaminaCost, hit.damage * cfg.staminaPerDamage * multiplier);
+    if (this.stats.trySpendStamina(cost)) {
+      this.machine.blockState.absorb(hit);
+      return "blocked";
+    }
+    this.stats.drainStamina();
+    this.postHitTimer = this.combat.playerHitReaction.postHitInvulnerability;
+    this.machine.change("HitStun", { hit: { ...hit, damage: 0, hitStun: cfg.guardBreakStun } });
+    return "guardBreak";
   }
 
   /** Volta à vida em `feet` com vida e stamina cheias e invulnerabilidade breve. */

@@ -52,6 +52,8 @@ export class KeyboardMouseSource implements InputSource {
   private readonly onPointerUp = (e: PointerEvent): void => {
     this.syncMouseButtons(e.buttons);
   };
+  /** Botão direito bloqueia: não pode abrir o menu de contexto do navegador. */
+  private readonly onContextMenu = (e: Event): void => e.preventDefault();
   private readonly onWheel = (e: WheelEvent): void => {
     e.preventDefault();
     this.zoomSteps += Math.sign(e.deltaY);
@@ -76,6 +78,7 @@ export class KeyboardMouseSource implements InputSource {
     // e com isso o navegador deixa de disparar mousedown/mousemove de compatibilidade.
     canvas.addEventListener("pointerdown", this.onPointerDown);
     canvas.addEventListener("wheel", this.onWheel, { passive: false });
+    canvas.addEventListener("contextmenu", this.onContextMenu);
     document.addEventListener("pointermove", this.onPointerMove);
     document.addEventListener("pointerup", this.onPointerUp);
   }
@@ -112,6 +115,7 @@ export class KeyboardMouseSource implements InputSource {
     this.canvas.removeEventListener("blur", this.onBlur);
     this.canvas.removeEventListener("pointerdown", this.onPointerDown);
     this.canvas.removeEventListener("wheel", this.onWheel);
+    this.canvas.removeEventListener("contextmenu", this.onContextMenu);
     document.removeEventListener("pointermove", this.onPointerMove);
     document.removeEventListener("pointerup", this.onPointerUp);
     if (this.isLocked) document.exitPointerLock();

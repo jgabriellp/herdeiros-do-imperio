@@ -17,8 +17,12 @@ export interface HitInfo {
   heavy: boolean;
 }
 
-/** Resultado do golpe do ponto de vista do alvo. */
-export type HitOutcome = "hit" | "killed" | "ignored";
+/**
+ * Resultado do golpe do ponto de vista do alvo.
+ * - blocked: segurou com o escudo (sem dano; o atacante recua);
+ * - guardBreak: tentou bloquear sem stamina suficiente (guarda quebrada, sem dano).
+ */
+export type HitOutcome = "hit" | "killed" | "blocked" | "guardBreak" | "ignored";
 
 /**
  * Qualquer coisa que pode levar golpes e ser travada pela mira.

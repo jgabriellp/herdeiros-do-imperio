@@ -4,6 +4,7 @@ const POOL_SIZE = 4;
 const SPARKS_PER_HIT = 18;
 const SPARKS_PER_HEAVY_HIT = 32;
 const DUST_PER_HIT = 14;
+const BLOCK_SPARKS = 26;
 
 /**
  * Partículas de impacto: faíscas no ponto do golpe e poeira nos pés do alvo (golpes fortes).
@@ -13,6 +14,8 @@ export class ImpactParticles {
   private readonly texture: DynamicTexture;
   private readonly sparks: ParticleSystem[] = [];
   private readonly dust: ParticleSystem[] = [];
+  private readonly blockSparks: ParticleSystem[] = [];
+  private nextBlock = 0;
   private nextSpark = 0;
   private nextDust = 0;
 
@@ -21,6 +24,7 @@ export class ImpactParticles {
     for (let i = 0; i < POOL_SIZE; i++) {
       this.sparks.push(this.createSparks(scene, i));
       this.dust.push(this.createDust(scene, i));
+      this.blockSparks.push(this.createBlockSparks(scene, i));
     }
   }
 
@@ -31,6 +35,14 @@ export class ImpactParticles {
     ps.manualEmitCount = heavy ? SPARKS_PER_HEAVY_HIT : SPARKS_PER_HIT;
   }
 
+  /** Faíscas azuladas de metal/madeira: golpe segurado pelo escudo. */
+  blockSparksAt(point: Readonly<Vector3>): void {
+    const ps = this.blockSparks[this.nextBlock]!;
+    this.nextBlock = (this.nextBlock + 1) % POOL_SIZE;
+    (ps.emitter as Vector3).copyFrom(point);
+    ps.manualEmitCount = BLOCK_SPARKS;
+  }
+
   dustAt(feet: Readonly<Vector3>): void {
     const ps = this.dust[this.nextDust]!;
     this.nextDust = (this.nextDust + 1) % POOL_SIZE;
@@ -39,7 +51,7 @@ export class ImpactParticles {
   }
 
   dispose(): void {
-    for (const ps of [...this.sparks, ...this.dust]) ps.dispose(false);
+    for (const ps of [...this.sparks, ...this.dust, ...this.blockSparks]) ps.dispose(false);
     this.texture.dispose();
   }
 
@@ -62,6 +74,17 @@ export class ImpactParticles {
     ps.emitRate = 0;
     ps.manualEmitCount = 0;
     ps.start();
+    return ps;
+  }
+
+  private createBlockSparks(scene: Scene, i: number): ParticleSystem {
+    const ps = this.createSparks(scene, i);
+    ps.name = `blockSparks_${i}`;
+    ps.color1 = new Color4(0.75, 0.9, 1, 1);
+    ps.color2 = new Color4(0.4, 0.65, 1, 1);
+    ps.colorDead = new Color4(0.1, 0.2, 0.6, 0);
+    ps.minEmitPower = 4;
+    ps.maxEmitPower = 8;
     return ps;
   }
 

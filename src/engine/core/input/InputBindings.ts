@@ -25,6 +25,9 @@ export const DEFAULT_KEYBOARD_MOUSE_BINDINGS: KeyboardMouseBindings = {
     kick: ["KeyF"],
     dodge: ["KeyC"],
     lockOn: ["KeyQ", "MouseMiddle"],
+    block: ["MouseRight"],
+    weaponUnarmed: ["Digit1"],
+    weaponArmed: ["Digit2"],
   },
 };
 

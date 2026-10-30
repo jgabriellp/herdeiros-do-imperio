@@ -5,7 +5,7 @@ export const MOVE_DEADZONE = 0.1;
 
 /**
  * Base de Idle/Move/Run: movimento livre no chão e a porta de entrada
- * para pulo, golpes e esquiva.
+ * para pulo, golpes, esquiva e bloqueio.
  */
 abstract class LocomotionState<K extends "Idle" | "Move" | "Run"> extends PlayerState<K> {
   update(_dt: number): void {
@@ -16,8 +16,12 @@ abstract class LocomotionState<K extends "Idle" | "Move" | "Run"> extends Player
       return;
     }
     if (input.wasPressed("dodge") && this.machine.tryDodge()) return;
+    if (input.isDown("block") && this.ctx.equipment.canBlock) {
+      this.machine.change("Block");
+      return;
+    }
     if (input.wasPressed("attack")) {
-      this.machine.change("Attack", { attack: this.ctx.combat.comboStarter, comboIndex: 0 });
+      this.machine.change("Attack", { attack: this.ctx.comboStarter(), comboIndex: 0 });
       return;
     }
     if (input.wasPressed("kick")) {

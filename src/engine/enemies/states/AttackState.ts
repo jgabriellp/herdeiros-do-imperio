@@ -51,12 +51,27 @@ export class EnemyAttackState extends EnemyState<"Attack"> {
       if (!ctx.hitbox.isActive) ctx.hitbox.activate();
       const feet = ctx.motor.feetPosition;
       ctx.hitbox.place(feet, facing, a.hitbox);
-      ctx.damage.resolve(ctx.hitbox, "enemy", feet.x, feet.z, {
+      const events = ctx.damage.resolve(ctx.hitbox, "enemy", feet.x, feet.z, {
         damage: ctx.stats.damage,
         knockback: a.knockback,
         targetHitStun: a.targetHitStun,
         heavy: a.heavy,
       });
+      // Bateu no escudo: recua desequilibrado (o golpe "quica").
+      const blocked = events.find((e) => e.outcome === "blocked");
+      if (blocked) {
+        this.machine.change("HitStun", {
+          hit: {
+            damage: 0,
+            directionX: -blocked.hit.directionX,
+            directionZ: -blocked.hit.directionZ,
+            knockback: a.blockedRecoil.knockback,
+            hitStun: a.blockedRecoil.hitStun,
+            heavy: false,
+          },
+        });
+        return;
+      }
     } else if (ctx.hitbox.isActive) {
       ctx.hitbox.deactivate();
     }

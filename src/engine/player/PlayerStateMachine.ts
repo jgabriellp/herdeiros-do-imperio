@@ -1,4 +1,5 @@
 import { AttackState } from "./states/AttackState";
+import { BlockState } from "./states/BlockState";
 import { PlayerDeadState } from "./states/DeadState";
 import { DodgeState } from "./states/DodgeState";
 import { HitStunState } from "./states/HitStunState";
@@ -29,6 +30,7 @@ export class PlayerStateMachine implements PlayerStateChanger {
       Attack: new AttackState(this, ctx),
       HitStun: new HitStunState(this, ctx),
       Dodge: new DodgeState(this, ctx),
+      Block: new BlockState(this, ctx),
       Dead: new PlayerDeadState(this, ctx),
     };
     this._current = this.states.Idle;
@@ -41,6 +43,10 @@ export class PlayerStateMachine implements PlayerStateChanger {
 
   get attackState(): AttackState {
     return this.states.Attack as AttackState;
+  }
+
+  get blockState(): BlockState {
+    return this.states.Block as BlockState;
   }
 
   change<K extends PlayerStateName>(

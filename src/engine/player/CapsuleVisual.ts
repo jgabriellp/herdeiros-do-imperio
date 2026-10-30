@@ -6,8 +6,11 @@ import {
   type AbstractMesh,
   type Mesh,
   type Scene,
+  type ShadowGenerator,
 } from "@babylonjs/core";
 import { damp } from "../core/mathUtils";
+import { getItem } from "../items/ItemConfig";
+import { createItemMesh, type ItemMesh } from "../items/ItemMeshes";
 import type { PlayerVisual, PlayerVisualState, VisualAction } from "./PlayerVisual";
 
 const BODY_COLOR = Color3.FromHexString("#3d5a80");
@@ -26,6 +29,27 @@ const FIST = { restZ: 0.15, pullZ: -0.05, reachZ: 0.75, height: 1.15, side: 0.22
 const FOOT = { restY: 0.35, restZ: 0.1, kneeY: 0.6, kneeZ: 0.05, kickY: 0.7, kickZ: 0.9, side: 0.12 };
 
 /**
+ * Espada: um "ombro" (pivô) gira a lâmina; rotation.x = inclinação (+ para baixo),
+ * rotation.y = lado (+ direita). A mão fica à frente do ombro.
+ */
+const SWORD = {
+  shoulder: { x: 0.3, y: 1.25, z: 0.05 },
+  handForward: 0.35,
+  idle: { pitch: 0.75, yaw: 0.35 },
+  slashPitch: 0.15,
+  slashWide: 1.5,
+  overheadRaised: -1.5,
+  overheadDown: 0.9,
+};
+/** Escudo: no braço esquerdo, erguido na frente ao bloquear, nas costas se guardado. */
+const SHIELD = {
+  arm: { x: -0.42, y: 1.0, z: 0.12, yaw: -0.5 },
+  raised: { x: -0.06, y: 1.15, z: 0.5 },
+  back: { x: 0, y: 1.0, z: -0.4 },
+  impactPush: 0.12,
+};
+
+/**
  * Visual provisório: cápsula com "visor" indicando a frente, e punho/pé que
  * aparecem nos golpes. Animação procedural simples, só para dar leitura clara
  * de preparação → golpe → recuperação até chegarem os modelos Mixamo.
@@ -42,8 +66,19 @@ export class CapsuleVisual implements PlayerVisual {
   private lean = 0;
   private cameraVisibility = 1;
   private actionVisibility = 1;
+  // Equipamento visível (recriado quando o que está na mão muda).
+  private readonly swordPivot: TransformNode;
+  private sword: ItemMesh | null = null;
+  private shield: ItemMesh | null = null;
+  private swordId: string | null = null;
+  private shieldId: string | null = null;
 
-  constructor(scene: Scene, height: number, radius: number) {
+  constructor(
+    private readonly scene: Scene,
+    height: number,
+    radius: number,
+    private readonly shadows: ShadowGenerator | null = null,
+  ) {
     this.root = new TransformNode("playerVisual", scene);
     // Pivô nos pés: inclinar o corpo gira a partir do chão, como uma pessoa.
     this.body = new TransformNode("playerBody", scene);
@@ -69,6 +104,10 @@ export class CapsuleVisual implements PlayerVisual {
       limb.setEnabled(false);
     }
 
+    this.swordPivot = new TransformNode("playerSwordPivot", scene);
+    this.swordPivot.parent = this.body;
+    this.swordPivot.position.set(SWORD.shoulder.x, SWORD.shoulder.y, SWORD.shoulder.z);
+
     this.bodyMeshes = [capsule, visor, this.fist, this.foot];
     for (const m of this.bodyMeshes) m.isPickable = false;
     this.shadowCasters = this.bodyMeshes;
@@ -86,6 +125,9 @@ export class CapsuleVisual implements PlayerVisual {
     this.bodyMaterial.emissiveColor.set(0, 0, 0);
     this.actionVisibility = 1;
 
+    this.syncGear(state.gear.sword, state.gear.shield);
+    this.poseGear(state);
+
     if (state.action) this.applyAction(state.action);
     this.refreshVisibility();
   }
@@ -96,6 +138,8 @@ export class CapsuleVisual implements PlayerVisual {
   }
 
   dispose(): void {
+    this.sword?.dispose();
+    this.shield?.dispose();
     this.root.dispose(false, true);
     for (const m of this.materials) m.dispose();
   }
@@ -106,6 +150,12 @@ export class CapsuleVisual implements PlayerVisual {
         return this.posePunch(action.comboIndex, action.phase, action.phaseProgress);
       case "kick":
         return this.poseKick(action.phase, action.phaseProgress);
+      case "sword":
+        return this.poseSword(action.comboIndex, action.phase, action.phaseProgress);
+      case "block":
+        // Firma o corpo atrás do escudo; o tranco inclina para trás.
+        this.body.rotation.x = 0.08 - 0.15 * action.impact;
+        return;
       case "dodge": {
         // Agacha no meio do movimento e inclina para o lado da esquiva.
         const arc = Math.sin(action.progress * Math.PI);
@@ -171,9 +221,95 @@ export class CapsuleVisual implements PlayerVisual {
     this.foot.setEnabled(true);
   }
 
+  /** Recria espada/escudo quando o item na mão muda. */
+  private syncGear(swordId: string | null, shieldId: string | null): void {
+    if (swordId !== this.swordId) {
+      this.sword?.dispose();
+      const item = getItem(swordId);
+      this.sword = item ? this.attachItem(createItemMesh(this.scene, item, "playerSword")) : null;
+      this.swordId = swordId;
+    }
+    if (shieldId !== this.shieldId) {
+      this.shield?.dispose();
+      const item = getItem(shieldId);
+      this.shield = item ? this.attachItem(createItemMesh(this.scene, item, "playerShield")) : null;
+      this.shieldId = shieldId;
+    }
+  }
+
+  private attachItem(item: ItemMesh): ItemMesh {
+    for (const m of item.meshes) this.shadows?.addShadowCaster(m);
+    return item;
+  }
+
+  /** Pose padrão do equipamento (guardado nas costas, na mão, ou escudo erguido). */
+  private poseGear(state: PlayerVisualState): void {
+    const drawn = state.gear.drawn;
+    if (this.sword) {
+      const r = this.sword.root;
+      if (drawn) {
+        r.parent = this.swordPivot;
+        r.position.set(0, 0, SWORD.handForward);
+        r.rotation.set(Math.PI / 2, 0, 0); // lâmina para a frente do braço
+        this.swordPivot.rotation.set(SWORD.idle.pitch, SWORD.idle.yaw, 0);
+      } else {
+        // Nas costas, na diagonal, com o cabo acima do ombro direito.
+        r.parent = this.body;
+        r.position.set(0.12, 1.45, -0.4);
+        r.rotation.set(0, 0, Math.PI * 0.8);
+      }
+    }
+    if (this.shield) {
+      const r = this.shield.root;
+      r.parent = this.body;
+      if (!drawn) {
+        r.position.set(SHIELD.back.x, SHIELD.back.y, SHIELD.back.z);
+        r.rotation.set(0, Math.PI, 0);
+      } else if (state.action?.kind === "block") {
+        const push = SHIELD.impactPush * state.action.impact;
+        r.position.set(SHIELD.raised.x, SHIELD.raised.y, SHIELD.raised.z - push);
+        r.rotation.set(0, 0, 0);
+      } else {
+        r.position.set(SHIELD.arm.x, SHIELD.arm.y, SHIELD.arm.z);
+        r.rotation.set(0, SHIELD.arm.yaw, 0);
+      }
+    }
+  }
+
+  /** Golpes 1 e 2: cortes horizontais em sentidos opostos. Golpe 3: corte de cima para baixo. */
+  private poseSword(comboIndex: number, phase: string, p: number): void {
+    const pivot = this.swordPivot;
+    const { idle, slashPitch, slashWide, overheadRaised, overheadDown } = SWORD;
+    if (comboIndex >= 2) {
+      const pitch =
+        phase === "windup"
+          ? lerp(idle.pitch, overheadRaised, easeOut(p))
+          : phase === "active"
+            ? lerp(overheadRaised, overheadDown, easeOut(p))
+            : lerp(overheadDown, idle.pitch, p);
+      pivot.rotation.set(pitch, 0, 0);
+      if (phase !== "recovery") this.body.rotation.x = phase === "active" ? 0.18 : -0.08;
+      return;
+    }
+    // Primeiro corte: da direita para a esquerda; segundo: o contrário.
+    const dir = comboIndex % 2 === 0 ? 1 : -1;
+    const yaw =
+      phase === "windup"
+        ? lerp(idle.yaw, dir * slashWide, easeOut(p))
+        : phase === "active"
+          ? lerp(dir * slashWide, -dir * slashWide * 0.8, easeOut(p))
+          : lerp(-dir * slashWide * 0.8, idle.yaw, p);
+    const pitch = phase === "recovery" ? lerp(slashPitch, idle.pitch, p) : slashPitch;
+    pivot.rotation.set(pitch, yaw, 0);
+    this.body.rotation.y = -yaw * 0.25; // o tronco acompanha o corte
+  }
+
   private refreshVisibility(): void {
     const v = this.cameraVisibility * this.actionVisibility;
     for (const mesh of this.bodyMeshes) mesh.visibility = v;
+    for (const item of [this.sword, this.shield]) {
+      if (item) for (const mesh of item.meshes) mesh.visibility = v;
+    }
   }
 
   private material(scene: Scene, name: string, color: Color3, glow = false): StandardMaterial {

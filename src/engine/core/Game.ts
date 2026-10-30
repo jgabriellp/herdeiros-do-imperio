@@ -111,6 +111,7 @@ export class Game {
       spawn,
       playerAttributes: save.current.player,
       encounters: episode.encounters,
+      pickups: episode.level.type === "procedural" ? (episode.level.data.pickups ?? []) : [],
       save,
       events,
       devMode: config.mode === "dev",
