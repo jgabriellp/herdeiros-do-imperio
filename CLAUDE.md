@@ -10,6 +10,24 @@ terão campos de batalha, infiltração e espionagem em palácios.
 Formato episódico: cada EPISÓDIO é uma fase, cada TEMPORADA é um arco. Escolhas de um
 episódio afetam os seguintes (via flags de história no save).
 
+### Referência de estilo: Medieval Dynasty (registrado pelo usuário em 2026-10-30)
+O usuário deseja que o jogo tenha **o mesmo estilo visual e a mesma jogabilidade de Medieval
+Dynasty**: estilo visual, jogabilidade, mapas, diálogos etc. Isso vale para as fases de
+conteúdo (história, mapas, personagens); a fundação atual continua valendo.
+
+Pontos a decidir com o usuário quando chegar a hora (não decidir sozinho):
+- **Câmera**: Medieval Dynasty é jogado principalmente em primeira pessoa; o projeto hoje é em
+  terceira pessoa com mira travada estilo Zelda. Manter 3ª pessoa, mudar para 1ª ou ter as duas?
+- **Visual**: o estilo é realista (vegetação densa, iluminação natural, ciclo dia/noite,
+  estações). No navegador isso exige cuidado com desempenho e assets (PBR, LOD, vegetação
+  instanciada); avaliar na Tarefa 11 (cenários .glb).
+- **Jogabilidade**: Medieval Dynasty tem sobrevivência, coleta, construção, agricultura e gestão
+  de vila. Quais desses sistemas entram, e como convivem com o formato episódico de história e
+  combate?
+- **Mapas**: mundo aberto contínuo versus fases por episódio (o formato atual).
+- **Diálogos**: escolhas em lista com o NPC na tela (estilo Medieval Dynasty) — alinhado com o
+  plano de usar ink na Tarefa 10.
+
 ## Resumo da história
 Um império de vários reinos. O imperador se corrompeu e, com dois reinos aliados, guerreou
 contra três reinos mais fracos. Um herói de guerra levou os fracos à vitória; o império
