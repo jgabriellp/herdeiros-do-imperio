@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
   "enemies": [
-    { "id": "vandalo_fraco", "type": "vandalo", "position": { "x": -5, "y": 0, "z": 14 }, "stats": { "health": 40, "damage": 8, "speed": 3.0 } },
-    { "id": "vandalo_rapido", "type": "vandalo", "position": { "x": 5, "y": 0, "z": 14 }, "stats": { "health": 60, "damage": 10, "speed": 4.5 } },
-    { "id": "vandalo_bruto", "type": "vandalo", "position": { "x": 0, "y": 0, "z": 20 }, "stats": { "health": 120, "damage": 20, "speed": 2.2 } }
+    { "id": "vandalo_fraco", "type": "vandalo", "facing": 180, "position": { "x": -5, "y": 0, "z": 14 }, "stats": { "health": 40, "damage": 8, "speed": 3.0 } },
+    { "id": "vandalo_rapido", "type": "vandalo", "facing": 270, "position": { "x": 5, "y": 0, "z": 14 }, "stats": { "health": 60, "damage": 10, "speed": 4.5 } },
+    { "id": "vandalo_bruto", "type": "vandalo", "facing": 0, "position": { "x": 0, "y": 0, "z": 20 }, "stats": { "health": 120, "damage": 20, "speed": 2.2 } }
   ]
 }

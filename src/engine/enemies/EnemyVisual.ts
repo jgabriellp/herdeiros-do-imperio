@@ -117,8 +117,10 @@ export class EnemyVisual {
       const { deathFallDuration, corpseLingerTime } = this.type;
       const fall = Math.min(1, action.elapsed / deathFallDuration);
       tilt = (Math.PI / 2) * fall * fall;
-      const fadeStart = deathFallDuration + corpseLingerTime * 0.5;
-      visibility = 1 - Math.min(1, Math.max(0, (action.elapsed - fadeStart) / (corpseLingerTime * 0.5)));
+      // Some só nos últimos segundos (o corpo fica no chão para ser encontrado).
+      const fadeTime = Math.min(2, corpseLingerTime * 0.5);
+      const fadeStart = deathFallDuration + corpseLingerTime - fadeTime;
+      visibility = 1 - Math.min(1, Math.max(0, (action.elapsed - fadeStart) / fadeTime));
     }
 
     this.arm.rotation.x = armAngle;

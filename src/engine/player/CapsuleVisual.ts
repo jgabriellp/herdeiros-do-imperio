@@ -21,6 +21,8 @@ const HIT_FLASH_COLOR = new Color3(0.9, 0.15, 0.1);
 const MAX_LEAN = 0.12;
 const LEAN_SHARPNESS = 10;
 const DEATH_FALL_DURATION = 0.6;
+const CROUCH_SCALE = 0.7;
+const CROUCH_LEAN = 0.22;
 /** Transparência durante os i-frames da esquiva (leitura de "intocável"). */
 const INVULNERABLE_VISIBILITY = 0.45;
 
@@ -132,6 +134,11 @@ export class CapsuleVisual implements PlayerVisual {
     // Pose neutra; a ação (se houver) sobrescreve o que precisar.
     this.body.rotation.set(this.lean, 0, 0);
     this.body.scaling.set(1, 1, 1);
+    if (state.crouched) {
+      // Agachado: mais baixo e inclinado para a frente.
+      this.body.scaling.y = CROUCH_SCALE;
+      this.body.rotation.x = CROUCH_LEAN;
+    }
     this.fist.setEnabled(false);
     this.foot.setEnabled(false);
     this.bodyMaterial.emissiveColor.set(0, 0, 0);

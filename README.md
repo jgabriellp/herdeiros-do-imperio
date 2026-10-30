@@ -39,6 +39,7 @@ Clique no jogo para capturar o mouse; Esc solta.
 | Botão direito (segurar) | Com escudo: bloquear (golpes de frente, gasta stamina). Com arco: mirar |
 | Botão esquerdo (com arco) | Mirando: segure para puxar a corda e solte para atirar. Sem mirar: tiro rápido |
 | 1 / 2 / 3             | Trocar para punhos / espada e escudo / arco                |
+| V                     | Agachar / levantar (furtivo: mais lento, menos barulho, mais difícil de ver) |
 | F                     | Chute (mais lento, mais dano, empurra)                     |
 | C                     | Esquiva (breve invulnerabilidade, gasta stamina)           |
 | Q / botão do meio     | Travar/destravar a mira no inimigo à frente; sem alvo, recentraliza a câmera |
@@ -66,6 +67,9 @@ No console, `herdeiros.switchEpisode("s01e01")` troca de episódio sem recarrega
 3. Os três vândalos (fraco, rápido e bruto) atacam; no máximo dois por vez, os outros rondam.
    Antes de cada golpe a clava brilha em amarelo: hora de esquivar ou erguer o escudo.
    Com o arco, de longe, uma flecha num inimigo desprevenido o abate em silêncio, sem alertar os outros.
+   Os inimigos veem num cone à frente (até 14 m) e ouvem passos: agache (V) para chegar perto
+   sem ser notado. Um "?" sobre a cabeça indica desconfiança; "!" indica que você foi descoberto.
+   Uma flecha cravando perto deles os distrai; um corpo encontrado os deixa desconfiados.
 4. Se a vida acabar, você renasce no último checkpoint.
 5. Derrote todos: aparece "Episódio concluído", o episódio fica marcado no save e o evento
    `episodeCompleted` é emitido.
@@ -143,12 +147,12 @@ A arquitetura completa e as decisões do projeto estão no [CLAUDE.md](CLAUDE.md
      `position` é a base do item; o `id` precisa ser único no episódio (o save lembra o que já foi
      pego). Itens disponíveis em `src/engine/items/ItemConfig.ts`: `espada_simples`, `escudo_madeira`,
      `arco_curto`.
-4. Crie o `encounters.json`:
+4. Crie o `encounters.json` (`facing` é opcional: para onde o inimigo olha, em graus, 0 = +Z):
    ```json
    {
      "formatVersion": 1,
      "enemies": [
-       { "id": "vandalo_1", "type": "vandalo", "position": { "x": 0, "y": 0, "z": 10 },
+       { "id": "vandalo_1", "type": "vandalo", "facing": 180, "position": { "x": 0, "y": 0, "z": 10 },
          "stats": { "health": 60, "damage": 10, "speed": 3.5 } }
      ]
    }

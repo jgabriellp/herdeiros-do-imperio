@@ -17,6 +17,9 @@ export interface PlayerControllerEvents {
   onWeaponChanged(label: string): void;
 }
 
+/** Estes estados fazem o jogador ficar de pé (correr, pular, rolar, cair). */
+const STANDS_UP: ReadonlySet<string> = new Set(["Run", "Jump", "Dodge", "HitStun", "Dead"]);
+
 /** Estados em que dá para trocar de arma (não no meio de um golpe, esquiva ou queda). */
 const CAN_SWITCH_WEAPON: ReadonlySet<string> = new Set(["Idle", "Move", "Run", "Block"]);
 
@@ -51,6 +54,7 @@ export class PlayerController {
     this.updateLock(cameraYaw);
     this.updateMoveDirection(cameraYaw);
     this.updateWeaponSwitch();
+    this.updateCrouch();
 
     this.machine.update(dt);
     this.motor.step(dt, this.ctx.intent);
@@ -58,6 +62,13 @@ export class PlayerController {
     // Caiu para fora do mundo: volta ao ponto de renascimento atual (último checkpoint).
     if (this.motor.feetPosition.y < this.movement.fallRespawnY) this.motor.teleport(this.respawnPoint);
     this.syncVisual(dt);
+  }
+
+  /** V alterna agachado/em pé; correr, pular, rolar ou ser atingido levanta. */
+  private updateCrouch(): void {
+    const ctx = this.ctx;
+    if (this.input.wasPressed("crouch") && this.stats.isAlive) ctx.crouched = !ctx.crouched;
+    if (ctx.crouched && STANDS_UP.has(this.machine.current.name)) ctx.crouched = false;
   }
 
   private updateWeaponSwitch(): void {
@@ -113,6 +124,7 @@ export class PlayerController {
         speed,
         speedRatio,
         grounded: this.motor.grounded,
+        crouched: this.ctx.crouched,
         verticalSpeed: this.motor.verticalSpeed,
         action: this.ctx.action,
         gear: {

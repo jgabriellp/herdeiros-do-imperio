@@ -109,6 +109,8 @@ export interface EnemySpawnDef {
   /** Posição dos pés. */
   position: Vec3Data;
   stats: EnemyStats;
+  /** Para onde olha ao começar, em graus (0 = +Z, 90 = +X). Padrão 0. */
+  facing?: number;
 }
 
 export interface EncountersData {

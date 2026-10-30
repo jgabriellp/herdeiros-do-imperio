@@ -10,7 +10,8 @@ export type ButtonAction =
   | "aim"
   | "weaponUnarmed"
   | "weaponArmed"
-  | "weaponBow";
+  | "weaponBow"
+  | "crouch";
 
 /**
  * O que todas as fontes de input produzem a cada quadro, já em unidades do jogo.

@@ -17,6 +17,7 @@ import { RespawnSystem } from "../progress/RespawnSystem";
 import type { SaveManager } from "../save/SaveManager";
 import { ControlsHint } from "../ui/ControlsHint";
 import { DevStatsPanel } from "../ui/DevStatsPanel";
+import { EnemyAwarenessMarkers } from "../ui/EnemyAwarenessMarkers";
 import { EnemyHealthBars } from "../ui/EnemyHealthBars";
 import { Hud } from "../ui/Hud";
 import { TargetMarker } from "../ui/TargetMarker";
@@ -37,7 +38,7 @@ const CONTROLS_HINT = [
   "Clique para jogar",
   "WASD mover · Shift correr · Espaço pular · Mouse câmera · Roda zoom",
   "Clique golpe (combo x3) · F chute · C esquiva · Botão direito bloquear (escudo) ou mirar (arco)",
-  "1 punhos · 2 espada e escudo · 3 arco (segure o clique para puxar a corda)",
+  "1 punhos · 2 espada e escudo · 3 arco (segure o clique para puxar a corda) · V agachar",
   "Q / botão do meio travar mira · Esc soltar o mouse",
 ];
 
@@ -81,8 +82,12 @@ export function createGameplay(deps: GameplayDeps): void {
   // Equipamento vem do save; é por ele que o jogador recebe itens (mapa hoje, NPCs depois).
   const equipment = new PlayerEquipment(deps.save);
 
-  // Flechas: projéteis que passam pelo mesmo DamageSystem dos golpes.
-  const arrows = new ArrowSystem(scene, damage, combat.bow);
+  // Flechas: projéteis que passam pelo mesmo DamageSystem dos golpes. Cravando no cenário
+  // fazem barulho (os inimigos são criados depois; o callback só roda durante o jogo).
+  let enemiesRef: EnemyManager | null = null;
+  const arrows = new ArrowSystem(scene, damage, combat.bow, (point) =>
+    enemiesRef?.emitNoise(point, combat.bow.impactNoiseRadius),
+  );
   disposables.add("arrows", () => arrows.dispose());
 
   // Criados depois do jogador, mas usados pelos callbacks dele.
@@ -128,6 +133,7 @@ export function createGameplay(deps: GameplayDeps): void {
   const enemies = new EnemyManager({ scene, shadows: deps.shadows, damage, player });
   disposables.add("enemies", () => enemies.dispose());
   enemies.spawnAll(deps.encounters.enemies);
+  enemiesRef = enemies;
 
   const cam = new ThirdPersonCamera(scene, player.motor, input, DEFAULT_CAMERA_CONFIG, player.motor.facingYaw);
   camera = cam;
@@ -185,6 +191,8 @@ export function createGameplay(deps: GameplayDeps): void {
   disposables.add("targetMarker", () => marker.dispose());
   const enemyBars = new EnemyHealthBars(hud.ui);
   disposables.add("enemyHealthBars", () => enemyBars.dispose());
+  const awarenessMarkers = new EnemyAwarenessMarkers(hud.ui);
+  disposables.add("awarenessMarkers", () => awarenessMarkers.dispose());
   const hint = new ControlsHint(host.root, host.canvas, CONTROLS_HINT);
   disposables.add("controlsHint", () => hint.dispose());
 
@@ -207,6 +215,8 @@ export function createGameplay(deps: GameplayDeps): void {
       player.fadeForCamera(cam.distance, DEFAULT_CAMERA_CONFIG.fadeStartDistance, DEFAULT_CAMERA_CONFIG.fadeEndDistance);
       marker.update(dt, player.lock.target);
       enemyBars.update(enemies.all);
+      awarenessMarkers.update(enemies.all);
+      hud.setCrouched(player.isCrouched);
       hud.setWeapon(equipment.label, equipment.canSwitch ? equipment.switchHint : "");
       hud.setAim(player.isAiming, player.machine.aimState.currentCharge);
       hud.update(dt, player.stats);
@@ -270,6 +280,7 @@ function createDevTools(deps: GameplayDeps, player: Player, enemies: EnemyManage
         `stamina: ${stats.stamina.toFixed(0)} / ${stats.maxStamina}`,
         `invuln.: ${player.isInvulnerable ? "sim" : "não"}`,
         `arma:    ${player.equipment.label} (${player.equipment.mode})`,
+        `furtivo: ${player.isCrouched ? "agachado" : "em pé"} · passos ${player.footstepNoiseRadius.toFixed(1)} m`,
         `mira:    ${player.isAiming ? `sim · tensão ${(player.machine.aimState.currentCharge * 100).toFixed(0)}%` : "não"}`,
         `alvo:    ${lock.target ? `${lock.target.id}` : "-"}`,
         `inimigos vivos: ${enemies.aliveCount} · atacando: ${enemies.coordinator.activeAttackers}`,

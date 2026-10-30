@@ -10,8 +10,9 @@ import type {
 } from "./states/EnemyState";
 import { EnemyHitStunState } from "./states/HitStunState";
 import { EnemyIdleState } from "./states/IdleState";
+import { InvestigateState } from "./states/InvestigateState";
 
-/** Máquina de estados do inimigo: Idle, Chase, Attack, HitStun, Dead. */
+/** Máquina de estados do inimigo: Idle, Investigate, Chase, Attack, HitStun, Dead. */
 export class EnemyStateMachine implements EnemyStateChanger {
   private readonly states: { [K in EnemyStateName]: EnemyState<K> };
   private _current: EnemyState;
@@ -19,6 +20,7 @@ export class EnemyStateMachine implements EnemyStateChanger {
   constructor(private readonly ctx: EnemyContext) {
     this.states = {
       Idle: new EnemyIdleState(this, ctx),
+      Investigate: new InvestigateState(this, ctx),
       Chase: new ChaseState(this, ctx),
       Attack: new EnemyAttackState(this, ctx),
       HitStun: new EnemyHitStunState(this, ctx),
@@ -30,6 +32,10 @@ export class EnemyStateMachine implements EnemyStateChanger {
 
   get current(): EnemyState {
     return this._current;
+  }
+
+  get investigateState(): InvestigateState {
+    return this.states.Investigate as InvestigateState;
   }
 
   change<K extends EnemyStateName>(

@@ -24,7 +24,9 @@ function readEnemy(c: Checker, value: unknown, path: string): EnemySpawnDef {
   const o = c.object(value, path);
   const stats = c.object(o["stats"], `${path}.stats`);
   const sp = `${path}.stats`;
+  const facing = c.optNum(o, "facing", path);
   return {
+    ...(facing !== undefined && { facing }),
     id: c.str(o, "id", path),
     type: c.str(o, "type", path),
     position: c.vec3(o, "position", path),

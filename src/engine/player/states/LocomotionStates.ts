@@ -70,9 +70,15 @@ export function pickLocomotion(magnitude: number, runHeld: boolean, locked: bool
 }
 
 export function locomotionSpeed(
-  ctx: { movement: { walkSpeed: number; runSpeed: number }; combat: { lock: { lockedMoveSpeed: number } }; lockYaw(): number | null },
+  ctx: {
+    movement: { walkSpeed: number; runSpeed: number; crouchSpeed: number };
+    combat: { lock: { lockedMoveSpeed: number } };
+    crouched: boolean;
+    lockYaw(): number | null;
+  },
   state: PlayerStateName,
 ): number {
+  if (ctx.crouched) return ctx.movement.crouchSpeed;
   if (ctx.lockYaw() !== null) return ctx.combat.lock.lockedMoveSpeed;
   return state === "Run" ? ctx.movement.runSpeed : ctx.movement.walkSpeed;
 }

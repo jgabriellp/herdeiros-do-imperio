@@ -6,12 +6,15 @@ import type { DamageSystem } from "../../combat/DamageSystem";
 import type { Hitbox } from "../../combat/Hitbox";
 import type { AttackPhase } from "../../player/PlayerVisual";
 import type { AttackCoordinator } from "../AttackCoordinator";
+import type { Perception } from "../Perception";
 import type { EnemyTypeConfig } from "../EnemyConfig";
 
-export type EnemyStateName = "Idle" | "Chase" | "Attack" | "HitStun" | "Dead";
+export type EnemyStateName = "Idle" | "Investigate" | "Chase" | "Attack" | "HitStun" | "Dead";
 
 export interface EnemyStateParams {
   Idle: void;
+  /** Ponto suspeito a investigar. */
+  Investigate: { point: Readonly<{ x: number; y: number; z: number }> };
   Chase: void;
   Attack: void;
   HitStun: { hit: HitInfo };
@@ -36,6 +39,9 @@ export interface EnemyContext {
   readonly damage: DamageSystem;
   readonly coordinator: AttackCoordinator;
   readonly player: CombatTarget;
+  readonly perception: Perception;
+  /** Posto do inimigo: para onde volta depois de investigar e para onde olha parado. */
+  readonly home: { position: Readonly<{ x: number; y: number; z: number }>; yaw: number };
   /** Pés dos outros inimigos vivos (para não se amontoarem). */
   neighbors(): Iterable<Readonly<Vector3>>;
   /** Grita: aliados desprevenidos a até `radius` metros entram na luta. */

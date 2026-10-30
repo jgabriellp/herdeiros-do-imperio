@@ -31,9 +31,18 @@ export class ChaseState extends EnemyState<"Chase"> {
     const { ai, attack } = ctx.type;
     const { dx, dz, dist } = this.toPlayer();
 
-    if (!ctx.player.isAlive || dist > ai.loseAggroRange) {
+    if (!ctx.player.isAlive) {
       this.finishAttackTurn();
       this.machine.change("Idle");
+      return;
+    }
+    // Perdeu o jogador de vista por tempo demais (ou ele fugiu para longe): vai procurar
+    // no último lugar onde o viu, ainda desconfiado.
+    const lost = ctx.perception.timeSinceSeen > ai.perception.loseSightTime || dist > ai.loseAggroRange;
+    if (lost) {
+      this.finishAttackTurn();
+      ctx.perception.meter = Math.min(0.95, ai.perception.suspiciousThreshold + 0.4);
+      this.machine.change("Investigate", { point: ctx.perception.lastSeenPlayer });
       return;
     }
 

@@ -2,6 +2,8 @@
 export interface MovementConfig {
   walkSpeed: number;
   runSpeed: number;
+  /** Velocidade agachado (furtivo). */
+  crouchSpeed: number;
   /** Aceleração no chão com input (m/s²). */
   groundAcceleration: number;
   /** Desaceleração no chão sem input (m/s²). */

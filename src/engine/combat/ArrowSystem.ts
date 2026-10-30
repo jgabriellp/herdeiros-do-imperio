@@ -47,6 +47,8 @@ export class ArrowSystem {
     private readonly scene: Scene,
     private readonly damage: DamageSystem,
     private readonly config: BowConfig,
+    /** Flecha cravou no cenário (barulho que pode atrair inimigos). */
+    private readonly onWorldImpact: (point: Readonly<Vector3>) => void = () => undefined,
   ) {
     this.template = createArrowMesh(scene, "arrowTemplate");
     this.template.root.setEnabled(false);
@@ -150,6 +152,7 @@ export class ArrowSystem {
       this.orient(arrow);
       arrow.flying = false;
       arrow.timeLeft = this.config.stuckLifetime;
+      this.onWorldImpact(arrow.position);
       return false;
     }
 

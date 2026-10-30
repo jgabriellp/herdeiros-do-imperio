@@ -1,6 +1,7 @@
 import type { Scene, ShadowGenerator, Vector3 } from "@babylonjs/core";
 import type { EnemySpawnDef } from "../../shared/types";
 import type { CombatTarget } from "../combat/CombatTypes";
+import type { StealthTarget } from "./Perception";
 import type { DamageSystem } from "../combat/DamageSystem";
 import { AttackCoordinator } from "./AttackCoordinator";
 import type { Enemy } from "./Enemy";
@@ -11,7 +12,7 @@ export interface EnemyManagerDeps {
   scene: Scene;
   shadows: ShadowGenerator | null;
   damage: DamageSystem;
-  player: CombatTarget;
+  player: CombatTarget & StealthTarget;
 }
 
 /** Mantém os inimigos do episódio: cria, coordena os ataques, atualiza e remove os mortos. */
@@ -32,6 +33,7 @@ export class EnemyManager {
       player: deps.player,
       neighborsOf: (enemy) => this.neighborsOf(enemy),
       shout: (enemy, radius) => this.shout(enemy, radius),
+      corpses: () => this.corpses(),
     });
   }
 
@@ -82,6 +84,17 @@ export class EnemyManager {
       enemy.dispose();
     }
     this.enemies.length = 0;
+  }
+
+  /** Barulho em `at` (ex.: flecha cravando): inimigos desprevenidos no raio vão investigar. */
+  emitNoise(at: Readonly<Vector3>, radius: number): void {
+    for (const e of this.enemies) {
+      if (Math.hypot(e.feetPosition.x - at.x, e.feetPosition.z - at.z) <= radius) e.hearNoise(at);
+    }
+  }
+
+  private *corpses(): Iterable<Enemy> {
+    for (const e of this.enemies) if (!e.isAlive) yield e;
   }
 
   /** Grito de alerta: aliados vivos e desprevenidos no raio entram na luta. */

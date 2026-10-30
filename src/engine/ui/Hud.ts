@@ -110,6 +110,7 @@ export class Hud {
   private readonly reticleRing: Ellipse;
   private readonly aimHint: TextBlock;
   private veilTarget = 0;
+  private crouched = false;
 
   constructor(scene: Scene, private readonly staminaLowThreshold: number) {
     this.ui = AdvancedDynamicTexture.CreateFullscreenUI("hud", true, scene);
@@ -199,9 +200,15 @@ export class Hud {
     this.ui.addControl(this.toast.block);
   }
 
+  /** Mostra "Agachado" junto da arma. */
+  setCrouched(crouched: boolean): void {
+    this.crouched = crouched;
+  }
+
   /** Arma na mão e os atalhos de troca disponíveis (vazio = nada para trocar). */
   setWeapon(label: string, switchHint: string): void {
-    const text = switchHint ? `${label}   ${switchHint}` : label;
+    const base = switchHint ? `${label}   ${switchHint}` : label;
+    const text = this.crouched ? `${base}   · Agachado (V)` : base;
     if (this.weaponText.text !== text) this.weaponText.text = text;
   }
 

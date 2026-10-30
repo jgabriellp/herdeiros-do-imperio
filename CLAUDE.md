@@ -76,12 +76,13 @@ src/engine/player/       Player (montagem + alvo de combate), PlayerController (
 src/engine/combat/       CombatConfig (TODOS os números do combate), CombatTypes (CombatTarget, HitInfo),
                          Hitbox, DamageSystem, TargetLock, HitboxDebugView, ArrowSystem (flechas),
                          arrowAim (direção do disparo), geometry (segmento × cápsula)
-src/engine/enemies/      Enemy, EnemyStateMachine + states/ (Idle, Chase, Attack, HitStun, Dead),
+src/engine/enemies/      Enemy, Perception (visão/audição/medidor), EnemyStateMachine + states/
+                         (Idle, Investigate, Chase, Attack, HitStun, Dead),
                          AttackCoordinator (fichas de ataque), EnemyVisual, EnemyFactory, EnemyManager,
                          EnemyConfig (tipos, IA, golpe, regras do grupo)
 src/engine/progress/     CheckpointSystem, RespawnSystem, EpisodeCompletion
 src/engine/items/        ItemConfig (catálogo de itens), ItemMeshes (formas provisórias), PickupSystem
-src/engine/ui/           Hud e EnemyHealthBars (Babylon GUI), TargetMarker (3D),
+src/engine/ui/           Hud, EnemyHealthBars e EnemyAwarenessMarkers (? / !) em Babylon GUI, TargetMarker (3D),
                          MessageOverlay, ControlsHint, DevStatsPanel (DOM)
 src/engine/vfx/          HitStop, ImpactParticles, CameraShake, ImpactFeedback (liga tudo ao onHit)
 src/shared/types/        tipos puros (sem Babylon), reaproveitáveis pela plataforma:
@@ -277,6 +278,30 @@ public/episodes/catalog.json   id → pasta; lido SÓ pelo main.ts
   A troca de estado acontece antes do grito (senão o eco virava recursão infinita). Visão em cone,
   audição, desconfiança e corpos encontrados: Tarefa 8.
 
+### Decisões registradas (Tarefa 8)
+- **Consciência do inimigo**: desprevenido (`Idle`, olha em volta a cada 3–6 s) → desconfiado
+  (`Investigate`: vai ao ponto, olha em volta 3 s, volta ao posto) → alerta (`Chase/Attack/HitStun`).
+  A percepção (`Perception`) só mede; quem decide a reação é o `Enemy` (`react()`).
+- **Visão**: cone de 55° para cada lado, 14 m, linha de visão por raycast (WORLD+PROP bloqueiam);
+  a até 2,5 m percebe em qualquer direção. Medidor 0→1: de perto enche em 0,25 s, no limite do
+  alcance em 2,2 s; ≥ 35% = desconfiado; 100% = alerta (grita). Sem ver, cai 20%/s.
+  **Agachado**: alcance × 0,6 e tempo × 1,6. Medido: em pé notado a 13,8 m e descoberto a 6 m;
+  agachado notado a 8,4 m e descoberto a 2,7 m (aproximando-se de frente).
+- **Audição**: passos com raio = velocidade × 1,1 m (agachado × 0,2: quase silencioso); flecha
+  cravando no cenário faz barulho de 6 m (distração). Ouvir dá direção para investigar, não certeza.
+- **Alerta que perde o jogador de vista** por 5 s (ou distância > 25 m) vai investigar o último
+  lugar onde o viu, já desconfiado.
+- **Corpos**: ficam no chão 90 s (somem nos últimos 2 s). Inimigo desprevenido que vê o corpo de
+  um aliado fica desconfiado e vai até ele (cada corpo é encontrado uma vez por inimigo).
+- **Abate furtivo vale também em inimigo desconfiado** (ele não sabe onde o jogador está): dá para
+  emboscar quem está investigando.
+- **Agachar com V** (alterna). Correr, pular, rolar, ser atingido ou morrer levanta. Agachado anda
+  a 2,2 m/s; a HUD mostra "Agachado (V)".
+- **Direção inicial** opcional dos inimigos no `encounters.json` (`facing` em graus; 0 = +Z).
+  Sandbox: fraco olha para o início (180°), rápido para o centro (270°), bruto de costas (0°).
+- Indicadores sobre a cabeça: "?" esmaecido crescendo (notando algo), "?" amarelo (investigando),
+  "!" vermelho por 1,6 s ao descobrir o jogador. Barra de vida só em combate ou ferido.
+
 ## Convenções
 - Classes pequenas, responsabilidade única. Comentários em português nas partes não óbvias.
 - Toda lógica de movimento usa deltaTime em segundos (`GameLoop.add(dt => ...)`). Suavizações
@@ -322,17 +347,10 @@ sem aprovação do usuário; a ordem pode mudar se ele pedir.
   direito (câmera no ombro, retícula), puxar/soltar com tensão, tiro rápido, flechas com gravidade
   que cravam no cenário, abate furtivo silencioso em inimigo desprevenido, alerta por grito no
   lugar do alerta por distância. Flechas infinitas por enquanto.
-- [ ] **Tarefa 8 — Percepção e furtividade**
-  1. Consciência do inimigo: **desprevenido → desconfiado (?) → alerta (!)**, com indicadores
-     sobre a cabeça.
-  2. Visão em cone com distância e linha de visão (paredes e pilares bloqueiam).
-  3. Audição: ruídos com raio (combate alto; flecha batendo no cenário baixo, vira distração
-     que faz o inimigo investigar o ponto).
-  4. Desconfiado vai investigar o ponto suspeito; se não achar nada, volta ao normal.
-  5. **Agachar com V** (alterna: aperta uma vez agacha, aperta de novo levanta): mais lento,
-     menos barulho, mais difícil de ver.
-  6. Inimigo que encontra um **companheiro abatido** fica desconfiado (decisão do usuário).
-  7. Alerta de grupo passa a exigir ver ou ouvir a luta.
+- [x] **Tarefa 8 — Percepção e furtividade**: visão em cone com linha de visão, audição (passos,
+  flecha cravando), medidor de certeza, desconfiado investiga e volta ao posto, alerta perde o
+  jogador de vista e vai procurar, agachar com V, corpos encontrados, indicadores ? e !, direção
+  inicial dos inimigos no encounters.json.
 - [ ] **Tarefa 9 — Modelos e animações Mixamo**: `PlayerVisual` (e o visual dos inimigos)
   carregando .glb com blend de animações (parado, andar, correr, pular, golpes, esquiva,
   atordoado, morte, mirar/atirar, agachado) a partir do `PlayerVisualState`. **Depende do

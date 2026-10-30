@@ -153,6 +153,8 @@ export interface BowConfig {
   stuckLifetime: number;
   /** Máximo de flechas na cena (as mais antigas somem). */
   maxArrows: number;
+  /** Raio do barulho da flecha cravando no cenário (atrai inimigos para investigar). */
+  impactNoiseRadius: number;
 }
 
 export interface CombatConfig {
@@ -362,5 +364,6 @@ export const DEFAULT_COMBAT_CONFIG: CombatConfig = {
     flightLifetime: 4,
     stuckLifetime: 8,
     maxArrows: 40,
+    impactNoiseRadius: 6,
   },
 };

@@ -31,6 +31,8 @@ export const DEFAULT_KEYBOARD_MOUSE_BINDINGS: KeyboardMouseBindings = {
     weaponUnarmed: ["Digit1"],
     weaponArmed: ["Digit2"],
     weaponBow: ["Digit3"],
+    // Alterna agachado/em pé (não segura). Ctrl não serve: Ctrl+W fecha a aba.
+    crouch: ["KeyV"],
   },
 };
 

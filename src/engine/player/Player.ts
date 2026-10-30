@@ -9,12 +9,13 @@ import { TargetLock } from "../combat/TargetLock";
 import { CollisionLayers } from "../core/CollisionLayers";
 import type { InputManager } from "../core/input/InputManager";
 import { CapsuleVisual } from "./CapsuleVisual";
-import { DEFAULT_CAPSULE_CONFIG, DEFAULT_MOVEMENT_CONFIG } from "./PlayerConfig";
+import { DEFAULT_CAPSULE_CONFIG, DEFAULT_MOVEMENT_CONFIG, DEFAULT_STEALTH_CONFIG } from "./PlayerConfig";
 import { PlayerController, yawTowards, type PlayerControllerEvents } from "./PlayerController";
 import type { PlayerEquipment } from "./PlayerEquipment";
 import { PlayerStateMachine } from "./PlayerStateMachine";
 import { PlayerStats } from "./PlayerStats";
 import type { PlayerVisual } from "./PlayerVisual";
+import type { StealthTarget } from "../enemies/Perception";
 import type { PlayerContext } from "./states/PlayerState";
 
 export interface PlayerDeps {
@@ -37,7 +38,7 @@ export interface PlayerDeps {
  * Monta o jogador (corpo físico, visual, atributos, máquina de estados, mira)
  * e o representa no combate como alvo da facção "player".
  */
-export class Player implements CombatTarget {
+export class Player implements CombatTarget, StealthTarget {
   readonly id = "player";
   readonly faction = "player" as const;
   readonly hurtRadius = DEFAULT_CAPSULE_CONFIG.radius;
@@ -56,6 +57,7 @@ export class Player implements CombatTarget {
   private readonly combat: CombatConfig;
   private postHitTimer = 0;
   private readonly onDied: () => void;
+  private readonly ctx: PlayerContext;
 
   constructor(deps: PlayerDeps) {
     const shape = DEFAULT_CAPSULE_CONFIG;
@@ -82,6 +84,7 @@ export class Player implements CombatTarget {
       lock,
       equipment: deps.equipment,
       viewYaw: 0,
+      crouched: false,
       moveDir: { x: 0, z: 0 },
       intent: createMoveIntent(),
       action: null,
@@ -96,6 +99,7 @@ export class Player implements CombatTarget {
       },
       fireArrow: (charge, aimed) => deps.onFireArrow(charge, aimed),
     };
+    this.ctx = ctx;
     this.machine = new PlayerStateMachine(ctx);
     this.controller = new PlayerController(
       ctx,
@@ -120,6 +124,26 @@ export class Player implements CombatTarget {
 
   get feetPosition(): Readonly<Vector3> {
     return this.motor.feetPosition;
+  }
+
+  get isCrouched(): boolean {
+    return this.ctx.crouched;
+  }
+
+  /** Raio do barulho dos passos agora: proporcional à velocidade, bem menor agachado. */
+  get footstepNoiseRadius(): number {
+    if (!this.motor.grounded) return 0;
+    const cfg = DEFAULT_STEALTH_CONFIG;
+    const radius = this.motor.horizontalSpeed * cfg.footstepRadiusPerSpeed;
+    return this.ctx.crouched ? radius * cfg.crouchNoiseFactor : radius;
+  }
+
+  get stealthVisionRangeFactor(): number {
+    return this.ctx.crouched ? DEFAULT_STEALTH_CONFIG.crouchVisionRangeFactor : 1;
+  }
+
+  get stealthDetectionTimeFactor(): number {
+    return this.ctx.crouched ? DEFAULT_STEALTH_CONFIG.crouchDetectionTimeFactor : 1;
   }
 
   /** Mirando com o arco (câmera no ombro + retícula). */
@@ -180,6 +204,7 @@ export class Player implements CombatTarget {
     this.stats.stamina = this.stats.maxStamina;
     this.postHitTimer = this.combat.death.respawnInvulnerability;
     this.lock.release();
+    this.ctx.crouched = false;
     this.machine.change("Idle");
   }
 

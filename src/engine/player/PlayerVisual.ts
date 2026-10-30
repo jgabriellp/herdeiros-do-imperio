@@ -44,6 +44,7 @@ export interface PlayerVisualState {
   /** speed normalizada: 0 parado, 1 andando, 2 correndo. */
   speedRatio: number;
   grounded: boolean;
+  crouched: boolean;
   verticalSpeed: number;
   action: VisualAction | null;
   /** Itens equipados e o que está empunhado (o resto fica guardado nas costas). */

@@ -71,7 +71,7 @@ export class AimState extends PlayerState<"Aim"> {
       }
     }
 
-    this.applyLocomotionIntent(bow.aimMoveSpeed);
+    this.applyLocomotionIntent(ctx.crouched ? Math.min(bow.aimMoveSpeed, ctx.movement.crouchSpeed) : bow.aimMoveSpeed);
     // Mirando, o corpo acompanha a câmera; no tiro rápido, o alvo travado (ou a frente atual).
     ctx.intent.faceYaw = this.hip ? ctx.lockYaw() : ctx.viewYaw;
     ctx.intent.turnSharpness = AIM_TURN_SHARPNESS;

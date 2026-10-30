@@ -51,6 +51,8 @@ export interface PlayerContext {
   readonly equipment: PlayerEquipment;
   /** Yaw da câmera neste quadro (para onde o jogador está olhando). */
   viewYaw: number;
+  /** Agachado (furtivo): mais lento, menos barulho, mais difícil de ver. */
+  crouched: boolean;
   /** Direção desejada no mundo (relativa à câmera, ou ao alvo se travado), comprimento 0..1. */
   readonly moveDir: { x: number; z: number };
   /** Intenção de movimento preenchida pelo estado a cada quadro. */

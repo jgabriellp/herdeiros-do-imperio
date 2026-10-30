@@ -24,9 +24,45 @@ export interface EnemyAttackConfig {
   blockedRecoil: { knockback: number; hitStun: number };
 }
 
+/** Como o inimigo percebe o jogador (visão, audição) e quanto tempo leva para ter certeza. */
+export interface PerceptionConfig {
+  /** Alcance da visão (m). */
+  visionRange: number;
+  /** Metade do ângulo do cone de visão (graus). */
+  visionHalfAngleDeg: number;
+  /** Abaixo desta distância percebe em qualquer direção (sente a presença). */
+  peripheralRange: number;
+  /** Altura dos olhos. */
+  eyeHeight: number;
+  /** Tempo para ter certeza (medidor 0→1) vendo o jogador de perto (≤ peripheralRange)... */
+  detectTimeNear: number;
+  /** ...e no limite do alcance (interpolado entre os dois). */
+  detectTimeFar: number;
+  /** A partir deste valor do medidor fica desconfiado (?) e investiga. */
+  suspiciousThreshold: number;
+  /** Quanto o medidor cai por segundo sem ver nada. */
+  decayPerSecond: number;
+  /** Em alerta, sem ver o jogador por este tempo, vai investigar o último lugar onde o viu. */
+  loseSightTime: number;
+}
+
+export interface InvestigateConfig {
+  /** Fração da velocidade ao ir investigar/voltar ao posto. */
+  speedFactor: number;
+  /** Tempo olhando em volta no ponto investigado. */
+  lookAroundTime: number;
+  /** Desiste de chegar ao ponto (caminho bloqueado) depois deste tempo. */
+  maxTravelTime: number;
+  /** Parado no posto, olha em volta a cada X segundos (aleatório entre min e max)... */
+  idleGlanceMin: number;
+  idleGlanceMax: number;
+  /** ...até este ângulo (graus) para cada lado da direção original. */
+  idleGlanceDeg: number;
+}
+
 export interface EnemyAiConfig {
-  /** Percebe o jogador a esta distância. */
-  aggroRange: number;
+  perception: PerceptionConfig;
+  investigate: InvestigateConfig;
   /**
    * Raio do grito de alerta: ao avistar o jogador ou ser atingido, o inimigo grita e os
    * aliados desprevenidos a esta distância entram na luta. Abate silencioso não grita.
@@ -62,7 +98,7 @@ export interface EnemyTypeConfig {
   hitFlashDuration: number;
   /** Duração da queda ao morrer. */
   deathFallDuration: number;
-  /** Tempo caído antes de sumir da cena. */
+  /** Tempo caído antes de sumir da cena (longo: corpos podem ser encontrados por aliados). */
   corpseLingerTime: number;
   ai: EnemyAiConfig;
   attack: EnemyAttackConfig;
@@ -89,9 +125,27 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     knockbackDrag: 7,
     hitFlashDuration: 0.12,
     deathFallDuration: 0.45,
-    corpseLingerTime: 1.5,
+    corpseLingerTime: 90,
     ai: {
-      aggroRange: 12,
+      perception: {
+        visionRange: 14,
+        visionHalfAngleDeg: 55,
+        peripheralRange: 2.5,
+        eyeHeight: 1.6,
+        detectTimeNear: 0.25,
+        detectTimeFar: 2.2,
+        suspiciousThreshold: 0.35,
+        decayPerSecond: 0.2,
+        loseSightTime: 5,
+      },
+      investigate: {
+        speedFactor: 0.6,
+        lookAroundTime: 3,
+        maxTravelTime: 10,
+        idleGlanceMin: 3,
+        idleGlanceMax: 6,
+        idleGlanceDeg: 45,
+      },
       alertRadius: 12,
       loseAggroRange: 25,
       circleRadius: 4.5,
