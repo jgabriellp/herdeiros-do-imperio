@@ -122,7 +122,7 @@ export interface PlayerDeathConfig {
 export interface BowConfig {
   /** Tempo para puxar a corda até a tensão máxima. */
   drawTime: number;
-  /** Tensão mínima para a flecha sair (soltar antes disso cancela). */
+  /** Tensão mínima: um clique rápido dispara com esta tensão. */
   minCharge: number;
   /** Velocidade da flecha com tensão mínima e máxima (m/s). */
   minSpeed: number;

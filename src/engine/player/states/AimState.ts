@@ -6,7 +6,8 @@ const AIM_TURN_SHARPNESS = 25;
 /**
  * Arco empunhado, puxando e disparando.
  * - Mira (botão direito segurado): câmera no ombro; segurar o botão esquerdo puxa a corda
- *   (tensão 0..1 em `drawTime`), soltar dispara; depois espera `nockTime` para a próxima flecha.
+ *   (tensão 0..1 em `drawTime`), soltar dispara (um clique rápido sai com a tensão mínima);
+ *   depois espera `nockTime` para a próxima flecha. Soltar a mira antes cancela o tiro.
  * - Tiro rápido (clique sem mirar, `hip`): puxada curta com tensão fixa e volta a andar.
  * Quem cria a flecha é o `ctx.fireArrow` (direção vem da câmera ou do alvo travado).
  */
@@ -61,11 +62,10 @@ export class AimState extends PlayerState<"Aim"> {
         if (input.isDown("attack")) {
           this.charge = Math.min(1, this.charge + dt / bow.drawTime);
         } else if (this.charge > 0) {
-          // Soltou o botão: dispara se a corda estava tensa o bastante.
-          if (this.charge >= bow.minCharge) {
-            ctx.fireArrow(this.charge, true);
-            this.nockTimer = bow.nockTime;
-          }
+          // Soltou o botão: sempre dispara (clique rápido = tiro fraco, com a tensão mínima).
+          // Para desistir do tiro, solta-se o botão direito (mira) antes.
+          ctx.fireArrow(Math.max(this.charge, bow.minCharge), true);
+          this.nockTimer = bow.nockTime;
           this.charge = 0;
         }
       }

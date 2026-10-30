@@ -257,7 +257,10 @@ public/episodes/catalog.json   id → pasta; lido SÓ pelo main.ts
 - **Mira** (estado `Aim`, botão direito segurado; o mesmo botão bloqueia quando há escudo na mão):
   câmera vai para o ombro direito (2,8 m, 0,85 m de deslocamento, FOV 0,78, mouse a 60%), ignora a
   trava, corpo acompanha a câmera, anda a 2,4 m/s. Segurar o clique puxa a corda (0,8 s até 100%);
-  soltar com tensão ≥ 20% dispara; 0,3 s para encaixar a próxima. Retícula com anel que fecha com a
+  soltar o clique sempre dispara (clique rápido = tiro fraco com a tensão mínima de 20%); soltar a
+  **mira** antes cancela o tiro; 0,3 s para encaixar a próxima. Dica "Segure o clique esquerdo para
+  puxar a corda · solte para atirar" sob a retícula (o usuário estranhou o controle no 1º teste;
+  manteve o esquema depois de entender). Retícula com anel que fecha com a
   tensão (dourado no máximo). Sem mirar, clique = tiro rápido (tensão 45%) no alvo travado ou à frente.
 - **Flechas** (`ArrowSystem`): projéteis com gravidade (9 m/s²), velocidade 20–48 m/s e dano 10–30
   conforme a tensão (× multiplicador do arco). Colisão com cenário por raycast Havok (WORLD+PROP):

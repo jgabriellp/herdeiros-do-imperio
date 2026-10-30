@@ -108,6 +108,7 @@ export class Hud {
   private readonly veil: Rectangle;
   private readonly reticleDot: Ellipse;
   private readonly reticleRing: Ellipse;
+  private readonly aimHint: TextBlock;
   private veilTarget = 0;
 
   constructor(scene: Scene, private readonly staminaLowThreshold: number) {
@@ -180,6 +181,17 @@ export class Hud {
       this.ui.addControl(c);
     }
 
+    // Dica da mira, logo abaixo da retícula.
+    this.aimHint = new TextBlock("aimHint", "Segure o clique esquerdo para puxar a corda · solte para atirar");
+    this.aimHint.fontFamily = FONT;
+    this.aimHint.fontSize = 15;
+    this.aimHint.color = PARCHMENT;
+    this.aimHint.outlineWidth = 3;
+    this.aimHint.outlineColor = "#000000";
+    this.aimHint.top = "70px";
+    this.aimHint.isVisible = false;
+    this.ui.addControl(this.aimHint);
+
     // Aviso curto no alto da tela.
     this.toast = new FadingText("hudToast", 24, PARCHMENT);
     this.toast.block.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
@@ -195,7 +207,7 @@ export class Hud {
 
   /** Mostra a retícula enquanto mira; o anel fecha com a tensão da corda (0..1). */
   setAim(visible: boolean, charge: number): void {
-    this.reticleDot.isVisible = this.reticleRing.isVisible = visible;
+    this.reticleDot.isVisible = this.reticleRing.isVisible = this.aimHint.isVisible = visible;
     if (!visible) return;
     const size = RETICLE_OPEN + (RETICLE_CLOSED - RETICLE_OPEN) * charge;
     this.reticleRing.width = this.reticleRing.height = `${size.toFixed(1)}px`;
