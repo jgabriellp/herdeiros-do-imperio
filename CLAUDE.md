@@ -264,9 +264,11 @@ public/episodes/catalog.json   id → pasta; lido SÓ pelo main.ts
   crava e some após 8 s; com personagens por segmento × cápsula. Acerto passa por
   `DamageSystem.applyDirect` (mesmo hit stop/faíscas). Máx. 40 na cena. A direção é calculada para
   o ponto sob a retícula **com compensação da queda** (a flecha cai onde a retícula aponta).
-  Testado: abates mirados a 16,6 m e 20,4 m.
-- **Abate furtivo** (`HitInfo.stealthKill`, só flechas por ora): alvo **desprevenido** (estado Idle)
-  morre na hora, inclusive o bruto, e **em silêncio**.
+  Testado: abates mirados a 16,6 m e 20,4 m. **Confirmado pelo usuário**: não quer mira mais
+  realista (sem o jogador compensar a queda).
+- **Abate furtivo** (`HitInfo.stealthKill`): alvo **desprevenido** (estado Idle) morre na hora,
+  inclusive o bruto, e **em silêncio**. **Só com flecha** (confirmado pelo usuário): soco/espada em
+  inimigo desprevenido causam dano normal e ele grita.
 - **Fim do alerta por distância**: o inimigo **grita** ao avistar o jogador ou ao ser ferido; aliados
   desprevenidos a até `alertRadius` (12 m) entram na luta e gritam também (o alerta se propaga).
   A troca de estado acontece antes do grito (senão o eco virava recursão infinita). Visão em cone,
